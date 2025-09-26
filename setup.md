@@ -36,10 +36,7 @@ add `exec` and pricise we use `JDK 17`
 </build>
 ```
 
-3. Run the project
-
+3. Put the latest build to local dev (in `~/.m2/repository`)
 ```bash
-mvn compile exec:java
-# Or
-mvn exec:java -Dexec.mainClass="com.giga.spring.Main"
+./package.sh
 ```
