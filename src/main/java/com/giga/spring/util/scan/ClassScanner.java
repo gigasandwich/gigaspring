@@ -1,42 +1,18 @@
-package com.giga.spring.util;
+package com.giga.spring.util.scan;
 
-import com.giga.spring.annotation.UrlMapping;
-import java.lang.reflect.Method;
+import java.io.File;
 import java.lang.annotation.Annotation;
-import java.util.*;
-import java.io.*;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
+public class ClassScanner {
+    private static ClassScanner instance;
 
-public class ScanUtils {
-    private static ScanUtils instance;
-
-    public static ScanUtils getInstance() {
+    public static ClassScanner getInstance() {
         if (instance == null)
-            instance = new ScanUtils();
+            instance = new ClassScanner();
         return instance;
-    }
-
-    /*
-     * Gets all the "UrlMapping.path()" values
-     * from the methods of clazz
-     */
-    public Map<String, Method> getAllUrlMappingPathValues(Class<?> clazz) throws SecurityException {
-        try {
-            Map<String, Method> result = new HashMap<>();
-
-            Method[] methods = clazz.getDeclaredMethods();
-            for (Method method : methods) {
-                if (method.isAnnotationPresent(UrlMapping.class)) {
-                    UrlMapping annotation = method.getAnnotation(UrlMapping.class);
-                    result.put(annotation.path(), method);
-                }
-            }
-
-            return result;
-        } catch (SecurityException se) {
-            throw se;
-        }
     }
 
     public Set<Class<?>> getClassesAnnotatedWith(Class<? extends Annotation> annotation, String basePackage) {
