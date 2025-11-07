@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.giga.spring.annotation.ControllerAnnotation;
-import com.giga.spring.util.ClassMethod;
+import com.giga.spring.util.http.ClassMethod;
 import com.giga.spring.util.scan.ClassScanner;
 import com.giga.spring.util.scan.MethodScanner;
 
@@ -32,6 +32,7 @@ public class GigaServletContextListener implements ServletContextListener{
 
         Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(ControllerAnnotation.class, "com.giga");
 
+        System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {
             Map<String, Method> urlMappingPathMap = MethodScanner.getInstance().getAllUrlMappingPathValues(c);
 
@@ -39,6 +40,8 @@ public class GigaServletContextListener implements ServletContextListener{
                 Method m = urlMappingPathMap.get(url);
                 ClassMethod cm = new ClassMethod(c, m);
                 map.put(url, cm);
+
+                System.out.println("\t" + url);
             }
         }
         return map;
