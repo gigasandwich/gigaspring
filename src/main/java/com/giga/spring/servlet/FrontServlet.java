@@ -5,11 +5,12 @@ import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.util.*;
 
-import com.giga.spring.annotation.ControllerAnnotation;
-import com.giga.spring.util.ClassMethod;
-import com.giga.spring.util.ScanUtils;
+import com.giga.spring.annotation.*;
+import com.giga.spring.util.*;
+import com.giga.spring.util.scan.*;
 
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,32 +29,10 @@ public class FrontServlet extends HttpServlet {
 
     @Override
     public void init() {
-        defaultDispatcher = getServletContext().getNamedDispatcher("default");
-        urlMethodMap = getUrlMethodMap();
-    }
-
-    /**
-     * Early gets all the url - method
-     * and inserts it in a map
-     */
-    private Map<String, ClassMethod> getUrlMethodMap() {
-        Map<String, ClassMethod> map = new HashMap<>();
-
-        ScanUtils scanUtils = ScanUtils.getInstance();
-
-        Set<Class<?>> classes = scanUtils.getClassesAnnotatedWith(ControllerAnnotation.class, "com.giga");
-        System.out.println(classes.size());
-        for (Class<?> c : classes) {
-            Map<String, Method> urlMappingPathMap = scanUtils.getAllUrlMappingPathValues(c);
-
-            for (String url : urlMappingPathMap.keySet()) {
-                Method m = urlMappingPathMap.get(url);
-                System.out.println("Url: " + url + ", method: " + m.getName());
-                ClassMethod cm = new ClassMethod(c, m);
-                map.put(url, cm);
-            }
-        }
-        return map;
+        ServletContext servletContext = getServletContext();
+        
+        defaultDispatcher = servletContext.getNamedDispatcher("default");
+        urlMethodMap = (Map<String, ClassMethod>) servletContext.getAttribute("urlCmMap");
     }
 
     @Override
@@ -77,17 +56,17 @@ public class FrontServlet extends HttpServlet {
 
     protected void customServe(HttpServletRequest req, HttpServletResponse res) throws IOException {
         String path = getLocalURIPath(req);
-        ClassMethod cm = getCmFor(path);
+        ClassMethod cm = urlMethodMap.get(path);
         boolean cmExists = cm != null;
 
         String responseBody = "";
 
         if (cmExists) {
-            String classMethodStr = cm.getM().getName();
+            String classMethodStr = cm.getC().getName() + "." + cm.getM().getName() + "()";
             String htmlBody = """
                     <h1>Method found</h1>
                     <bold>%s</bold>
-                    """.formatted(classMethodStr);
+                    """.formatted("<code>" + classMethodStr + "</code>");
 
             responseBody = setResponseBody("Method found", htmlBody);
         } else {
@@ -103,10 +82,6 @@ public class FrontServlet extends HttpServlet {
 
     private String getLocalURIPath(HttpServletRequest req) {
         return req.getRequestURI().substring(req.getContextPath().length());
-    }
-
-    private ClassMethod getCmFor(String uri) {
-        return urlMethodMap.get(uri);
     }
 
     private String setResponseBody(String title, String body) {
