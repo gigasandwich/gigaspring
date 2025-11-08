@@ -52,8 +52,8 @@ public class FrontServlet extends HttpServlet {
     protected void customServe(HttpServletRequest req, HttpServletResponse res) throws IOException {
         String path = getLocalURIPath(req);
         ClassMethod cm = urlMethodMap.get(path);
-        
-        ResponseHandler.getInstance().handleResponse(cm, res);
+
+        new ResponseHandler(getServletContext()).handleResponse(cm, req, res);
     }
 
     protected void defaultServe(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
