@@ -1,4 +1,4 @@
-package com.giga.spring.util.http;
+package com.giga.spring.util;
 
 import java.lang.reflect.Method;
 
