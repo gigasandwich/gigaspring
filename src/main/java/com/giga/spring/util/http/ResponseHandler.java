@@ -59,6 +59,12 @@ public class ResponseHandler {
             } else if (returnType.equals(ModelAndView.class)) {
                 ModelAndView mav = (ModelAndView) m.invoke(controller);
                 String view = mav.getView();
+
+                for (String key : mav.getAttributes().keySet()) {
+                    Object value =  mav.getAttributes().get(key);
+                    req.setAttribute(key, value);
+                }
+
                 RequestDispatcher requestDispatcher = context.getRequestDispatcher(view);
                 requestDispatcher.forward(req, res);
                 // No need to set responseBody anymore because requestDispatcher.forward(...) handles the response
