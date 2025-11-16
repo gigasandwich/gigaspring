@@ -30,48 +30,59 @@ public class ResponseHandler {
             handle404(res);
         }
 
-        // responseBody is instanciated in either invokeControllerMethod(...) or handle404(...)
+        // responseBody is instantiated in either invokeControllerMethod(...) or handle404(...)
         if (responseBody != null) {
             try (PrintWriter out = res.getWriter()) {
                 out.println(responseBody);
             } catch (IOException ex) {
                 // TODO: log
-                ex.printStackTrace();
+                handleError(res, ex.getMessage());
             }
         }
     }
 
     protected void invokeControllerMethod(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) {
         try {
-            Class<?> c = cm.getC();
-
             Method m = cm.getM();
-            m.setAccessible(true); // Never forget this 🗿
-
             Class<?> returnType = m.getReturnType();
 
-            Constructor<?> controllerConstructor = c.getDeclaredConstructor();
-            Object controller = controllerConstructor.newInstance();
-
             if (returnType.equals(String.class)) {
-                res.setContentType("text/plain");
-                responseBody = m.invoke(controller).toString();
+                handleString(cm, req, res);
             } else if (returnType.equals(ModelAndView.class)) {
-                ModelAndView mav = (ModelAndView) m.invoke(controller);
-                String view = mav.getView();
-                RequestDispatcher requestDispatcher = context.getRequestDispatcher(view);
-                requestDispatcher.forward(req, res);
-                // No need to set responseBody anymore because requestDispatcher.forward(...) handles the response
+                handleMav(cm, req, res);
             } else {
-                // Not sure what `content type` to add yet
-                m.invoke(controller);
-                // No responseBody either because of the unknown return type
+                handleFallback(cm, req, res);
             }
         } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException | InvocationTargetException | IllegalAccessException ex) { // From method invocation
             handleError(res, "Error invoking controller method: " + ex.getMessage());
         } catch (ServletException | IOException ex) { // From requestDispatcher.forward()
             handleError(res, "Error forwarding to view: " + ex.getMessage());
         }
+    }
+
+    private void handleString(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
+        res.setContentType("text/plain");
+        responseBody = cm.invokeMethod().toString();
+    }
+
+    private void handleMav(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
+        ModelAndView mav = (ModelAndView) cm.invokeMethod();
+        String view = mav.getView();
+
+        for (String key : mav.getAttributes().keySet()) {
+            Object value =  mav.getAttributes().get(key);
+            req.setAttribute(key, value);
+        }
+
+        RequestDispatcher requestDispatcher = context.getRequestDispatcher(view);
+        requestDispatcher.forward(req, res);
+        // No need to set responseBody anymore because requestDispatcher.forward(...) handles the response
+    }
+
+    private void handleFallback(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
+        // Not sure what `content type` to add yet
+        cm.invokeMethod();
+        // No responseBody either because of the unknown return type
     }
 
     private void handleError(HttpServletResponse res, String errorMessage) {
