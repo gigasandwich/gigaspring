@@ -20,14 +20,11 @@ public class Router {
     }
 
     public Route getRoute(String uri) throws IllegalArgumentException {
-        String normalizedUri = uri.endsWith("/") && uri.length() > 1
-                ? uri.substring(0, uri.length() - 1)
-                : uri;
 
         for(Route route : routes) {
             String pathRegex = route.pathToRegex();
             Pattern pattern = Pattern.compile(pathRegex);
-            boolean uriMatchesPattern = pattern.matcher(normalizedUri).matches();
+            boolean uriMatchesPattern = pattern.matcher(uri).matches();
             if (uriMatchesPattern) {
                 return route;
             }

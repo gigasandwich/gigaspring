@@ -8,7 +8,10 @@ public class Route {
     private ClassMethod cm;
 
     public Route(String path, ClassMethod cm) {
-        this.path = path;
+        String normalizedPath = path.endsWith("/") && path.length() > 1
+                ? path.substring(0, path.length() - 1)
+                : path;
+        this.path = normalizedPath;
         this.cm = cm;
     }
 
@@ -30,7 +33,6 @@ public class Route {
             String replacement = "([^/]+)"; // Replace {var} with ([^/]+)
             pathToRegex = path.replaceAll(regex, replacement);
         }
-        System.out.println(pathToRegex);
         return pathToRegex;
     }
 
