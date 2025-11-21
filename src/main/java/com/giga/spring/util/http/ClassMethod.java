@@ -5,6 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 
+import com.giga.spring.annotation.RequestParameter;
 import jakarta.servlet.http.HttpServletRequest;
 
 public class ClassMethod {
@@ -31,7 +32,11 @@ public class ClassMethod {
         Object[] args = new Object[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
             Parameter p = parameters[i];
-            String paramValue = req.getParameter(p.getName());
+
+            RequestParameter annotation = p.getAnnotation(RequestParameter.class);
+            String paramName = (annotation != null) ? annotation.value() : p.getName();
+            String paramValue = req.getParameter(paramName);
+
             if (p.getType() == int.class) {
                 args[i] = paramValue != null ? Integer.parseInt(paramValue) : 0;
             } else {
