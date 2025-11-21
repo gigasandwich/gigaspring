@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.giga.spring.annotation.ControllerAnnotation;
+import com.giga.spring.servlet.route.Router;
 import com.giga.spring.util.http.ClassMethod;
 import com.giga.spring.util.scan.ClassScanner;
 import com.giga.spring.util.scan.MethodScanner;
@@ -20,7 +21,7 @@ public class GigaServletContextListener implements ServletContextListener{
     @Override
     public void contextInitialized(ServletContextEvent event) {
         ServletContext servletContext = event.getServletContext();
-        servletContext.setAttribute("urlCmMap", getUrlMethodMap());
+        servletContext.setAttribute("router", new Router(getUrlMethodMap()));
     }
 
     /**

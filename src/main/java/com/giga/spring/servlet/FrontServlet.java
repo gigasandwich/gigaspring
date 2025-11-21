@@ -1,9 +1,9 @@
 package com.giga.spring.servlet;
 
 import java.io.IOException;
-import java.util.Map;
 
-import com.giga.spring.util.http.ClassMethod;
+import com.giga.spring.servlet.route.Route;
+import com.giga.spring.servlet.route.Router;
 import com.giga.spring.util.http.ResponseHandler;
 
 import jakarta.servlet.RequestDispatcher;
@@ -22,14 +22,14 @@ public class FrontServlet extends HttpServlet {
 
     RequestDispatcher defaultDispatcher;
 
-    Map<String, ClassMethod> urlMethodMap;
+    Router router;
 
     @Override
     public void init() {
         ServletContext servletContext = getServletContext();
 
         defaultDispatcher = servletContext.getNamedDispatcher("default");
-        urlMethodMap = (Map<String, ClassMethod>) servletContext.getAttribute("urlCmMap");
+        router = (Router) servletContext.getAttribute("router");
     }
 
     @Override
@@ -49,11 +49,11 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
-    protected void customServe(HttpServletRequest req, HttpServletResponse res) throws IOException {
+    protected void customServe(HttpServletRequest req, HttpServletResponse res) throws IllegalArgumentException {
         String path = getLocalURIPath(req);
-        ClassMethod cm = urlMethodMap.get(path);
+        Route route = router.getRoute(path);
 
-        new ResponseHandler(getServletContext()).handleResponse(cm, req, res);
+        new ResponseHandler(getServletContext()).handleResponse(route, req, res);
     }
 
     protected void defaultServe(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {

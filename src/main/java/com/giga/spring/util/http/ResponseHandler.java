@@ -2,10 +2,10 @@ package com.giga.spring.util.http;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import com.giga.spring.servlet.route.Route;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
@@ -21,11 +21,11 @@ public class ResponseHandler {
         this.context = context;
     }
 
-    public void handleResponse(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) {
-        boolean cmExists = cm != null;
+    public void handleResponse(Route route, HttpServletRequest req, HttpServletResponse res) {
+        boolean routeExists = route != null;
 
-        if (cmExists) {
-            invokeControllerMethod(cm, req, res);
+        if (routeExists) {
+            invokeControllerMethod(route, req, res);
         } else {
             handle404(res);
         }
@@ -41,17 +41,17 @@ public class ResponseHandler {
         }
     }
 
-    protected void invokeControllerMethod(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) {
+    protected void invokeControllerMethod(Route route, HttpServletRequest req, HttpServletResponse res) {
         try {
-            Method m = cm.getM();
+            Method m = route.getCm().getM();
             Class<?> returnType = m.getReturnType();
 
             if (returnType.equals(String.class)) {
-                handleString(cm, req, res);
+                handleString(route, req, res);
             } else if (returnType.equals(ModelAndView.class)) {
-                handleMav(cm, req, res);
+                handleMav(route, req, res);
             } else {
-                handleFallback(cm, req, res);
+                handleFallback(route, req, res);
             }
         } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException | InvocationTargetException | IllegalAccessException ex) { // From method invocation
             handleError(res, "Error invoking controller method: " + ex.getMessage());
@@ -60,12 +60,14 @@ public class ResponseHandler {
         }
     }
 
-    private void handleString(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
+    private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
+        ClassMethod cm = route.getCm();
         res.setContentType("text/plain");
         responseBody = cm.invokeMethod().toString();
     }
 
-    private void handleMav(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
+    private void handleMav(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
+        ClassMethod cm = route.getCm();
         ModelAndView mav = (ModelAndView) cm.invokeMethod();
         String view = mav.getView();
 
@@ -79,7 +81,8 @@ public class ResponseHandler {
         // No need to set responseBody anymore because requestDispatcher.forward(...) handles the response
     }
 
-    private void handleFallback(ClassMethod cm, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
+    private void handleFallback(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
+        ClassMethod cm = route.getCm();
         // Not sure what `content type` to add yet
         cm.invokeMethod();
         // No responseBody either because of the unknown return type
