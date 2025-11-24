@@ -4,8 +4,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.Map;
 
-import com.giga.spring.annotation.RequestParameter;
+import com.giga.spring.annotation.controller.PathVariable;
+import com.giga.spring.annotation.controller.RequestParameter;
+import com.giga.spring.servlet.route.Route;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 public class ClassMethod {
@@ -24,23 +28,52 @@ public class ClassMethod {
         return m.invoke(controller);
     }
 
-    public Object invokeMethod(HttpServletRequest req) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    public Object invokeMethod(Route route, HttpServletRequest req) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         Constructor<?> controllerConstructor = c.getDeclaredConstructor();
         Object controller = controllerConstructor.newInstance();
 
+        // Filling the args of the method
         Parameter[] parameters = m.getParameters();
         Object[] args = new Object[parameters.length];
+        
         for (int i = 0; i < parameters.length; i++) {
-            Parameter p = parameters[i];
+            Parameter parameter = parameters[i];
 
-            RequestParameter annotation = p.getAnnotation(RequestParameter.class);
-            String paramName = (annotation != null) ? annotation.value() : p.getName();
-            String paramValue = req.getParameter(paramName);
+            /**
+             * If there's an annotation RequestParameter(value=name):
+             * match its value with the request.getParameter(name)
+             */
+            RequestParameter requestParameterannotation = parameter.getAnnotation(RequestParameter.class);
+            String paramName = (requestParameterannotation != null) ?
+                    requestParameterannotation.value()
+                    : parameter.getName();
+            String paramValue = req.getParameter(paramName); // Can be null
 
-            if (p.getType() == int.class) {
-                args[i] = paramValue != null ? Integer.parseInt(paramValue) : 0;
+            if (parameter.getType() == int.class && paramValue != null) {
+                args[i] = Integer.parseInt(paramValue);
+                continue;
             } else {
                 args[i] = paramValue;
+            }
+
+            // PathVariable handler
+            if (args[i] == null) {
+                PathVariable pathVariableAnnotation =  parameter.getAnnotation(PathVariable.class);
+                if (pathVariableAnnotation != null) {
+                    String uri = Route.getLocalURIPath(req);
+                    Map<String, String> pathVariableValues = route.getPathVariableValues(uri);
+                    String pathVariableName = pathVariableAnnotation.value();
+
+                    args[i] = (Object) pathVariableValues.get(pathVariableName);
+                }
+            }
+            
+            if (args[i] != null && parameter.getType() == int.class) {
+                args[i] = Integer.parseInt(args[i].toString());
+            }
+            
+            if (args[i] == null) {
+                throw new IllegalArgumentException("Required parameter '" + paramName + "' is missing");                    
             }
         }
 

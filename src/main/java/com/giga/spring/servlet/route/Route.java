@@ -1,6 +1,14 @@
 package com.giga.spring.servlet.route;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.giga.spring.util.http.ClassMethod;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 public class Route {
 
@@ -29,11 +37,36 @@ public class Route {
             pathToRegex = "^" + path + "$";
         } else {
             // JAVA naming convention
-            String regex = "\\{[A-Za-z_$][A-Za-z0-9_$]*}";
-            String replacement = "([^/]+)"; // Replace {var} with ([^/]+)
+            String regex = "\\{([A-Za-z_$][A-Za-z0-9_$]*)\\}";
+            String replacement = "(?<$1>[^/]+)"; // Replace {var} with ([^/]+)
             pathToRegex = path.replaceAll(regex, replacement);
         }
         return pathToRegex;
+    }
+
+    public Map<String, String> getPathVariableValues(String url) {
+        String regex = this.pathToRegex();
+
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(url);
+
+        if (matcher.matches()) {
+            Map<String, String> variables = new HashMap<>();
+            Pattern p  = Pattern.compile("\\(\\?<([^>]+)>");
+            Matcher m = p.matcher(regex);
+            while (m.find()) {
+                String key = m.group(1);
+                variables.put(key, matcher.group(key));
+            }
+            return variables;
+        } else {
+            return Collections.emptyMap();
+        }
+    }
+
+
+    public static String getLocalURIPath(HttpServletRequest req) {
+        return req.getRequestURI().substring(req.getContextPath().length());
     }
 
     public String getPath() {

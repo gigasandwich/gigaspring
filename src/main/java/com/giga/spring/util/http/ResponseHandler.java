@@ -63,12 +63,12 @@ public class ResponseHandler {
     private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
         ClassMethod cm = route.getCm();
         res.setContentType("text/plain");
-        responseBody = cm.invokeMethod(req).toString();
+        responseBody = cm.invokeMethod(route, req).toString();
     }
 
     private void handleMav(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
         ClassMethod cm = route.getCm();
-        ModelAndView mav = (ModelAndView) cm.invokeMethod(req);
+        ModelAndView mav = (ModelAndView) cm.invokeMethod(route, req);
         String view = mav.getView();
 
         for (String key : mav.getAttributes().keySet()) {
@@ -84,7 +84,7 @@ public class ResponseHandler {
     private void handleFallback(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
         ClassMethod cm = route.getCm();
         // Not sure what `content type` to add yet
-        cm.invokeMethod(req);
+        cm.invokeMethod(route, req);
         // No responseBody either because of the unknown return type
     }
 
