@@ -38,47 +38,81 @@ public class ClassMethod {
         
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
-
-            /**
-             * If there's an annotation RequestParameter(value=name):
-             * match its value with the request.getParameter(name)
-             */
-            RequestParameter requestParameterannotation = parameter.getAnnotation(RequestParameter.class);
-            String paramName = (requestParameterannotation != null) ?
-                    requestParameterannotation.value()
-                    : parameter.getName();
-            String paramValue = req.getParameter(paramName); // Can be null
-
-            if (parameter.getType() == int.class && paramValue != null) {
-                args[i] = Integer.parseInt(paramValue);
-                continue;
-            } else {
-                args[i] = paramValue;
-            }
-
-            // PathVariable handler
-            if (args[i] == null) {
-                PathVariable pathVariableAnnotation =  parameter.getAnnotation(PathVariable.class);
-                if (pathVariableAnnotation != null) {
-                    String uri = Route.getLocalURIPath(req);
-                    Map<String, String> pathVariableValues = route.getPathVariableValues(uri);
-                    String pathVariableName = pathVariableAnnotation.value();
-
-                    args[i] = (Object) pathVariableValues.get(pathVariableName);
-                }
-            }
             
-            if (args[i] != null && parameter.getType() == int.class) {
-                args[i] = Integer.parseInt(args[i].toString());
-            }
-            
-            if (args[i] == null) {
-                throw new IllegalArgumentException("Required parameter '" + paramName + "' is missing");                    
-            }
+            String paramName = getParameterName(parameter);
+            Object paramValue = getParameterValue(paramName, parameter, req, route);
+
+            args[i] = convertValue(paramValue, parameter.getType(), paramName);
         }
 
         return m.invoke(controller, args);
     }
+
+    private String getParameterName(Parameter parameter) {
+        RequestParameter rp = parameter.getAnnotation(RequestParameter.class);
+        if (rp != null) {
+            return rp.value();
+        }
+        
+        PathVariable pv = parameter.getAnnotation(PathVariable.class);
+        if (pv != null) {
+            return pv.value();
+        }
+
+        return parameter.getName();
+    }
+
+    private Object getParameterValue(String paramName, Parameter parameter, HttpServletRequest req, Route route) {
+        // 1. request.getParameter
+        String value = req.getParameter(paramName);
+        if (value != null) {
+            return value;
+        }
+
+        // 2. PathVariable
+        PathVariable pv = parameter.getAnnotation(PathVariable.class);
+        if (pv != null) {
+            String uri = Route.getLocalURIPath(req);
+            Map<String, String> pathVars = route.getPathVariableValues(uri);
+            return pathVars.get(paramName);
+        }
+
+        return null;
+    }
+
+    private Object convertValue(Object value, Class<?> targetType, String paramName) {
+        if (value == null) {
+            if (targetType.isPrimitive()) {
+                throw new IllegalArgumentException("Required primitive parameter '" + paramName + "' is missing");
+            } else { // Objects
+                return null;
+            }
+        }
+
+        String strValue = value.toString();
+        try {
+            if (targetType == int.class || targetType == Integer.class) {
+                return Integer.parseInt(strValue);
+            } else if (targetType == long.class || targetType == Long.class) {
+                return Long.parseLong(strValue);
+            } else if (targetType == boolean.class || targetType == Boolean.class) {
+                return Boolean.parseBoolean(strValue);
+            } else if (targetType == double.class || targetType == Double.class) {
+                return Double.parseDouble(strValue);
+            } else if (targetType == String.class) {
+                return strValue;
+            } else {
+                // throw new IllegalArgumentException("Unsupported parameter type: " + targetType.getSimpleName());
+                return value;
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid value for parameter '" + paramName + "': " + strValue, e);
+        }
+    }
+
+    /****************************
+     * Getters and setters
+     ****************************/
 
     public Class<?> getC() {
         return c;
