@@ -38,7 +38,7 @@ public class FrontServlet extends HttpServlet {
          * Example: If URI is /app/folder/file.html and context path is /app,
          * then path = /folder/file.html
          */
-        String path = getLocalURIPath(req);
+        String path = Route.getLocalURIPath(req);
 
         boolean resourceExists = getServletContext().getResource(path) != null;
 
@@ -50,7 +50,7 @@ public class FrontServlet extends HttpServlet {
     }
 
     protected void customServe(HttpServletRequest req, HttpServletResponse res) throws IllegalArgumentException {
-        String path = getLocalURIPath(req);
+        String path = Route.getLocalURIPath(req);
         Route route = router.getRoute(path);
 
         new ResponseHandler(getServletContext()).handleResponse(route, req, res);
@@ -60,11 +60,4 @@ public class FrontServlet extends HttpServlet {
         defaultDispatcher.forward(req, res);
     }
 
-    /****************************
-     * Utils
-     ****************************/
-
-    private String getLocalURIPath(HttpServletRequest req) {
-        return req.getRequestURI().substring(req.getContextPath().length());
-    }
 }
