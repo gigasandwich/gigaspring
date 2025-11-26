@@ -1,4 +1,4 @@
-package com.giga.spring.annotation;
+package com.giga.spring.annotation.http;
 
 import java.lang.annotation.*;
 
