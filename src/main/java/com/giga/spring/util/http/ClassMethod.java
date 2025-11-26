@@ -8,18 +8,36 @@ import java.util.Map;
 
 import com.giga.spring.annotation.controller.PathVariable;
 import com.giga.spring.annotation.controller.RequestParameter;
+import com.giga.spring.annotation.http.DoGet;
+import com.giga.spring.annotation.http.DoPost;
+import com.giga.spring.annotation.http.UrlMapping;
 import com.giga.spring.servlet.route.Route;
 
+import com.giga.spring.util.http.constant.HttpMethod;
 import jakarta.servlet.http.HttpServletRequest;
 
 public class ClassMethod {
     private Class <?> c;
     private Method m;
+    private HttpMethod httpMethod;
 
     public ClassMethod(Class<?> c, Method m) {
         this.c = c;
         this.m = m;
+        this.httpMethod = getHttpMethodOnInit();
         m.setAccessible(true); // Never forget this 🗿
+    }
+
+    private HttpMethod getHttpMethodOnInit() {
+        if (m.isAnnotationPresent(DoGet.class)) {
+            return HttpMethod.GET;
+        } else if (m.isAnnotationPresent(DoPost.class)) {
+            return HttpMethod.POST;
+        } else if (m.isAnnotationPresent(UrlMapping.class))  {
+            return HttpMethod.ALL;
+        } else {
+            throw new EnumConstantNotPresentException(HttpMethod.GET.getDeclaringClass(), "HttpMethod");
+        }
     }
 
     public Object invokeMethod() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
@@ -114,6 +132,10 @@ public class ClassMethod {
      * Getters and setters
      ****************************/
 
+    public HttpMethod getHttpMethod() {
+        return httpMethod;
+    }
+
     public Class<?> getC() {
         return c;
     }
@@ -125,5 +147,9 @@ public class ClassMethod {
     }
     public void setM(Method m) {
         this.m = m;
+    }
+
+    public String toString() {
+        return c.getName() + " " + m.toString();
     }
 }

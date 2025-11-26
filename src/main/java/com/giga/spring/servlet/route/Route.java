@@ -1,26 +1,29 @@
 package com.giga.spring.servlet.route;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.giga.spring.util.http.ClassMethod;
 
+import com.giga.spring.util.http.constant.HttpMethod;
 import jakarta.servlet.http.HttpServletRequest;
 
 public class Route {
 
     private String path;
-    private ClassMethod cm;
+    private List<ClassMethod> cms;
 
-    public Route(String path, ClassMethod cm) {
+    public Route(String path, List<ClassMethod> cms) {
         String normalizedPath = path.endsWith("/") && path.length() > 1
                 ? path.substring(0, path.length() - 1)
                 : path;
         this.path = normalizedPath;
-        this.cm = cm;
+        this.cms = cms;
     }
 
     public String pathToRegex() throws IllegalArgumentException {
@@ -64,6 +67,30 @@ public class Route {
         }
     }
 
+    public ClassMethod getClassMethodByRequest(HttpServletRequest req) throws Exception {
+        String requestMethod = req.getMethod();
+        HttpMethod httpMethod = getHttpMethod(requestMethod);
+
+        for (ClassMethod cm : cms) {
+            System.out.println(cm);
+            if (cm.getHttpMethod().equals(httpMethod)) {
+                return cm;
+            }
+        }
+
+        return null;
+    }
+
+
+    private static HttpMethod getHttpMethod(String requestMethod) throws Exception {
+        if (requestMethod.equalsIgnoreCase("get")) {
+            return HttpMethod.GET;
+        } else if (requestMethod.equalsIgnoreCase("post")) {
+            return HttpMethod.POST;
+        } else {
+            throw new Exception(requestMethod + " method not handled");
+        }
+    }
 
     public static String getLocalURIPath(HttpServletRequest req) {
         return req.getRequestURI().substring(req.getContextPath().length());
@@ -77,12 +104,12 @@ public class Route {
         this.path = path;
     }
 
-    public ClassMethod getCm() {
-        return cm;
+    public List<ClassMethod> getCms() {
+        return cms;
     }
 
-    public void setCm(ClassMethod cm) {
-        this.cm = cm;
+    public void setCm(List<ClassMethod> cm) {
+        this.cms = cms;
     }
 
 }

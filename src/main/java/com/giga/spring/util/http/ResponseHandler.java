@@ -6,6 +6,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import com.giga.spring.servlet.route.Route;
+import com.giga.spring.util.http.constant.HttpMethod;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
@@ -43,7 +44,8 @@ public class ResponseHandler {
 
     protected void invokeControllerMethod(Route route, HttpServletRequest req, HttpServletResponse res) {
         try {
-            Method m = route.getCm().getM();
+            Method m = route.getClassMethodByRequest(req).getM();
+
             Class<?> returnType = m.getReturnType();
 
             if (returnType.equals(String.class)) {
@@ -53,21 +55,24 @@ public class ResponseHandler {
             } else {
                 handleFallback(route, req, res);
             }
-        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException | InvocationTargetException | IllegalAccessException ex) { // From method invocation
+        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException |
+                 InvocationTargetException | IllegalAccessException ex) { // From method invocation
             handleError(res, "Error invoking controller method: " + ex.getMessage());
         } catch (ServletException | IOException ex) { // From requestDispatcher.forward()
             handleError(res, "Error forwarding to view: " + ex.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
-        ClassMethod cm = route.getCm();
+    private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
+        ClassMethod cm = route.getClassMethodByRequest(req);
         res.setContentType("text/plain");
         responseBody = cm.invokeMethod(route, req).toString();
     }
 
-    private void handleMav(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
-        ClassMethod cm = route.getCm();
+    private void handleMav(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
+        ClassMethod cm = route.getClassMethodByRequest(req);
         ModelAndView mav = (ModelAndView) cm.invokeMethod(route, req);
         String view = mav.getView();
 
@@ -81,8 +86,8 @@ public class ResponseHandler {
         // No need to set responseBody anymore because requestDispatcher.forward(...) handles the response
     }
 
-    private void handleFallback(Route route, HttpServletRequest req, HttpServletResponse res) throws InvocationTargetException, IllegalAccessException, ServletException, IOException, NoSuchMethodException, InstantiationException {
-        ClassMethod cm = route.getCm();
+    private void handleFallback(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
+        ClassMethod cm = route.getClassMethodByRequest(req);
         // Not sure what `content type` to add yet
         cm.invokeMethod(route, req);
         // No responseBody either because of the unknown return type
