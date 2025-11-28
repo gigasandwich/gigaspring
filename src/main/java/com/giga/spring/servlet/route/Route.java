@@ -69,11 +69,16 @@ public class Route {
 
     public ClassMethod getClassMethodByRequest(HttpServletRequest req) throws Exception {
         String requestMethod = req.getMethod();
-        HttpMethod httpMethod = getHttpMethod(requestMethod);
+        HttpMethod incomingHttpMethod = getHttpMethod(requestMethod);
 
         for (ClassMethod cm : cms) {
             System.out.println(cm);
-            if (cm.getHttpMethod().equals(httpMethod)) {
+
+            if (cm.getHttpMethod().equals(HttpMethod.ALL)) {
+                return cm;
+            }
+
+            if (cm.getHttpMethod().equals(incomingHttpMethod)) {
                 return cm;
             }
         }
