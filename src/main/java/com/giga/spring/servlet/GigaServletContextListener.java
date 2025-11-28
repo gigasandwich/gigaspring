@@ -1,11 +1,9 @@
 package com.giga.spring.servlet;
 
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-import com.giga.spring.annotation.ControllerAnnotation;
+import com.giga.spring.annotation.controller.Controller;
 import com.giga.spring.servlet.route.Router;
 import com.giga.spring.util.http.ClassMethod;
 import com.giga.spring.util.scan.ClassScanner;
@@ -25,23 +23,28 @@ public class GigaServletContextListener implements ServletContextListener{
     }
 
     /**
-     * Gets all the url - CM during init()
-     * and inserts it in a map
+     * Gets all the url - List<CM> during init()
      */
 
-    private Map<String, ClassMethod> getUrlMethodMap() {
-        Map<String, ClassMethod> map = new HashMap<>();
+    private Map<String, List<ClassMethod>> getUrlMethodMap() {
+        Map<String, List<ClassMethod>> map = new HashMap<>();
 
-        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(ControllerAnnotation.class, "com.giga");
+        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(Controller.class, "com.giga");
 
         System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {
-            Map<String, Method> urlMappingPathMap = MethodScanner.getInstance().getAllUrlMappingPathValues(c);
+            Map<String, List<Method>> urlMappingPathMap = MethodScanner.getInstance().getAllUrlMappingPathValues(c);
 
             for (String url : urlMappingPathMap.keySet()) {
-                Method m = urlMappingPathMap.get(url);
-                ClassMethod cm = new ClassMethod(c, m);
-                map.put(url, cm);
+                List<Method> methods = urlMappingPathMap.get(url);
+                List<ClassMethod> classMethods = new ArrayList<>();
+
+                for (Method m : methods) {
+                    ClassMethod cm = new ClassMethod(c, m);
+                    classMethods.add(cm);
+                }
+
+                map.put(url, classMethods);
 
                 System.out.println("\t" + url);
             }

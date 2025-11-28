@@ -1,10 +1,14 @@
 package com.giga.spring.util.scan;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import com.giga.spring.annotation.UrlMapping;
+import com.giga.spring.annotation.http.DoGet;
+import com.giga.spring.annotation.http.DoPost;
+import com.giga.spring.annotation.http.RequestMapping;
 
 public class MethodScanner {
     private static MethodScanner instance;
@@ -16,19 +20,29 @@ public class MethodScanner {
     }
 
     /*
-     * Gets all the "UrlMapping.path()" values
+     * Gets all the "RequestMapping.path()" values
      * from the methods of clazz
      */
-    public Map<String, Method> getAllUrlMappingPathValues(Class<?> clazz) throws SecurityException {
+    public Map<String, List<Method>> getAllUrlMappingPathValues(Class<?> clazz) throws SecurityException {
         try {
-            Map<String, Method> result = new HashMap<>();
+            Map<String, List<Method>> result = new HashMap<>();
 
             Method[] methods = clazz.getDeclaredMethods();
             for (Method method : methods) {
-                if (method.isAnnotationPresent(UrlMapping.class)) {
-                    UrlMapping annotation = method.getAnnotation(UrlMapping.class);
-                    result.put(annotation.path(), method);
+                String path = null;
+
+                if (method.isAnnotationPresent(RequestMapping.class)) {
+                    RequestMapping requestMapping = method.getAnnotation(RequestMapping.class);
+                    path = requestMapping.path();
+                } else if (method.isAnnotationPresent(DoPost.class)) {
+                    DoPost doPost = method.getAnnotation(DoPost.class);
+                    path = doPost.path();
+                } else if (method.isAnnotationPresent(DoGet.class)) {
+                    DoGet doGet = method.getAnnotation(DoGet.class);
+                    path = doGet.path();
                 }
+                result.putIfAbsent(path, new ArrayList<>());
+                result.get(path).add(method);
             }
 
             return result;

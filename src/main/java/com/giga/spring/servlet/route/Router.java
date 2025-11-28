@@ -10,10 +10,10 @@ import java.util.regex.Pattern;
 public class Router {
     private List<Route> routes;
 
-    public Router(Map<String, ClassMethod> map) {
+    public Router(Map<String, List<ClassMethod>> map) {
         routes = new ArrayList<>();
 
-        for (Map.Entry<String, ClassMethod> e : map.entrySet()) {
+        for (Map.Entry<String, List<ClassMethod>> e : map.entrySet()) {
             Route route = new Route(e.getKey(), e.getValue());
             routes.add(route);
         }
