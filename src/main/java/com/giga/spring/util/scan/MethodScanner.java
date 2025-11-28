@@ -8,7 +8,7 @@ import java.util.Map;
 
 import com.giga.spring.annotation.http.DoGet;
 import com.giga.spring.annotation.http.DoPost;
-import com.giga.spring.annotation.http.UrlMapping;
+import com.giga.spring.annotation.http.RequestMapping;
 
 public class MethodScanner {
     private static MethodScanner instance;
@@ -20,7 +20,7 @@ public class MethodScanner {
     }
 
     /*
-     * Gets all the "UrlMapping.path()" values
+     * Gets all the "RequestMapping.path()" values
      * from the methods of clazz
      */
     public Map<String, List<Method>> getAllUrlMappingPathValues(Class<?> clazz) throws SecurityException {
@@ -31,9 +31,9 @@ public class MethodScanner {
             for (Method method : methods) {
                 String path = null;
 
-                if (method.isAnnotationPresent(UrlMapping.class)) {
-                    UrlMapping urlMapping = method.getAnnotation(UrlMapping.class);
-                    path = urlMapping.path();
+                if (method.isAnnotationPresent(RequestMapping.class)) {
+                    RequestMapping requestMapping = method.getAnnotation(RequestMapping.class);
+                    path = requestMapping.path();
                 } else if (method.isAnnotationPresent(DoPost.class)) {
                     DoPost doPost = method.getAnnotation(DoPost.class);
                     path = doPost.path();

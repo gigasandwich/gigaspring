@@ -10,7 +10,7 @@ import com.giga.spring.annotation.controller.PathVariable;
 import com.giga.spring.annotation.controller.RequestParameter;
 import com.giga.spring.annotation.http.DoGet;
 import com.giga.spring.annotation.http.DoPost;
-import com.giga.spring.annotation.http.UrlMapping;
+import com.giga.spring.annotation.http.RequestMapping;
 import com.giga.spring.servlet.route.Route;
 
 import com.giga.spring.util.http.constant.HttpMethod;
@@ -33,7 +33,7 @@ public class ClassMethod {
             return HttpMethod.GET;
         } else if (m.isAnnotationPresent(DoPost.class)) {
             return HttpMethod.POST;
-        } else if (m.isAnnotationPresent(UrlMapping.class))  {
+        } else if (m.isAnnotationPresent(RequestMapping.class))  {
             return HttpMethod.ALL;
         } else {
             throw new EnumConstantNotPresentException(HttpMethod.GET.getDeclaringClass(), "HttpMethod");

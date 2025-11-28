@@ -3,7 +3,7 @@ package com.giga.spring.servlet;
 import java.lang.reflect.Method;
 import java.util.*;
 
-import com.giga.spring.annotation.ControllerAnnotation;
+import com.giga.spring.annotation.controller.Controller;
 import com.giga.spring.servlet.route.Router;
 import com.giga.spring.util.http.ClassMethod;
 import com.giga.spring.util.scan.ClassScanner;
@@ -23,14 +23,13 @@ public class GigaServletContextListener implements ServletContextListener{
     }
 
     /**
-     * Gets all the url - CM during init()
-     * and inserts it in a map
+     * Gets all the url - List<CM> during init()
      */
 
     private Map<String, List<ClassMethod>> getUrlMethodMap() {
         Map<String, List<ClassMethod>> map = new HashMap<>();
 
-        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(ControllerAnnotation.class, "com.giga");
+        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(Controller.class, "com.giga");
 
         System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {

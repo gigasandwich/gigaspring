@@ -1,9 +1,9 @@
-package com.giga.spring.annotation;
+package com.giga.spring.annotation.controller;
 
 import java.lang.annotation.*;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface ControllerAnnotation {
+public @interface Controller {
 
 }
