@@ -1,9 +1,7 @@
 package com.giga.spring.util.http;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
+import java.lang.reflect.*;
+import java.util.HashMap;
 import java.util.Map;
 
 import com.giga.spring.annotation.controller.PathVariable;
@@ -93,6 +91,30 @@ public class ClassMethod {
             String uri = Route.getLocalURIPath(req);
             Map<String, String> pathVars = route.getPathVariableValues(uri);
             return pathVars.get(paramName);
+        }
+
+        // 3. Map<String, Object>
+        Type type = parameter.getParameterizedType();
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            if (parameterizedType.getRawType().equals(Map.class)) {
+                Type[] typeArguments = parameterizedType.getActualTypeArguments();
+                if (typeArguments.length == 2 && typeArguments[0].equals(String.class) && typeArguments[1].equals(Object.class) ){
+                    Map<String, Object> paramMapObject = new HashMap<>();
+                    Map<String, String[]> parameterMap = req.getParameterMap();
+                    for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+                        String key = entry.getKey();
+                        String[] values = entry.getValue();
+
+                        if (values.length == 1) {
+                            paramMapObject.put(key, values[0]);
+                        } else {
+                            paramMapObject.put(key, values);
+                        }
+                    }
+                    return paramMapObject;
+                }
+            }
         }
 
         return null;
