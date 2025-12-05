@@ -64,6 +64,14 @@ public class ClassMethod {
         return m.invoke(controller, args);
     }
 
+    /**
+     * It has been created because the real value of the parameter might not be from the variable name
+     * but sometimes from the annotation
+     * eg:
+     * - `void method (@RequestParam("usedVariableName") String unusedVariableName) { ... }`
+     * - `void method (@PathVariable("usedVariableName") String unusedVariableName) { ... }`
+     * - `void method (String usedVariableName) { ... }`
+     */
     private String getParameterName(Parameter parameter) {
         RequestParameter rp = parameter.getAnnotation(RequestParameter.class);
         if (rp != null) {
