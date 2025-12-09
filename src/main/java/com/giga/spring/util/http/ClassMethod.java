@@ -117,7 +117,45 @@ public class ClassMethod {
             }
         }
 
+        // 4. Raw Object
+        if (!parameter.getType().isPrimitive() && !parameter.getType().equals(String.class)) {
+            Map<String, String[]> parameterMap = req.getParameterMap();
+            return mapToObject(parameter.getType(), parameterMap, paramName);
+        }
+
         return null;
+    }
+
+    private <T> T mapToObject(Class<T> parameterType, Map<String, String[]> parameterMap, String prefix) {
+        try {
+            T obj = (T) parameterType.getDeclaredConstructor().newInstance();
+
+            for (Field field : parameterType.getDeclaredFields()) {
+                field.setAccessible(true);
+                String key = prefix + "." + field.getName();
+                String[] values = parameterMap.get(key);
+                
+                if (field.getType().isPrimitive() || field.getType().equals(String.class)) {
+                    if (values != null && values.length > 0) {
+                        field.set(obj, convertValue(values[0], field.getType(), field.getName()));
+                    }
+                } else if (field.getType().isArray()) {
+                    if (values != null) {
+                        field.set(obj, convertValue(values, field.getType(), field.getName()));
+                    }
+                } else {
+                    boolean hasNested = parameterMap.keySet().stream().anyMatch(k -> k.startsWith(key + "."));
+                    if (hasNested) {
+                        Object nestedObj = mapToObject(field.getType(), parameterMap, key);
+                        field.set(obj, nestedObj);
+                    }
+                }
+            }
+
+            return obj;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Object convertValue(Object value, Class<?> targetType, String paramName) {
