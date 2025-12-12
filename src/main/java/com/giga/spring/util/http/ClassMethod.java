@@ -1,8 +1,7 @@
 package com.giga.spring.util.http;
 
 import java.lang.reflect.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import com.giga.spring.annotation.controller.PathVariable;
 import com.giga.spring.annotation.controller.RequestParameter;
@@ -58,7 +57,11 @@ public class ClassMethod {
             String paramName = getParameterName(parameter);
             Object paramValue = getParameterValue(paramName, parameter, req, route);
 
-            args[i] = convertValue(paramValue, parameter.getType(), paramName);
+            try {
+                args[i] = convertValue(paramValue, parameter.getType());
+            } catch (Exception e) {
+                throw new RuntimeException(e.getMessage() + " (" + paramName + ")");
+            }
         }
 
         return m.invoke(controller, args);
@@ -137,11 +140,11 @@ public class ClassMethod {
                 
                 if (field.getType().isPrimitive() || field.getType().equals(String.class)) {
                     if (values != null && values.length > 0) {
-                        field.set(obj, convertValue(values[0], field.getType(), field.getName()));
+                        field.set(obj, convertValue(values[0], field.getType()));
                     }
-                } else if (field.getType().isArray()) {
+                } else if (field.getType().isArray() || field.getType().isAssignableFrom(List.class)) {
                     if (values != null) {
-                        field.set(obj, convertValue(values, field.getType(), field.getName()));
+                        field.set(obj, convertValue(values, field.getType()));
                     }
                 } else {
                     boolean hasNested = parameterMap.keySet().stream().anyMatch(k -> k.startsWith(key + "."));
@@ -158,10 +161,10 @@ public class ClassMethod {
         }
     }
 
-    private Object convertValue(Object value, Class<?> targetType, String paramName) {
+    private Object convertValue(Object value, Class<?> targetType) {
         if (value == null) {
             if (targetType.isPrimitive()) {
-                throw new IllegalArgumentException("Required primitive parameter '" + paramName + "' is missing");
+                throw new IllegalArgumentException("Required primitive parameter is missing");
             } else { // Objects
                 return null;
             }
@@ -179,12 +182,26 @@ public class ClassMethod {
                 return Double.parseDouble(strValue);
             } else if (targetType == String.class) {
                 return strValue;
+            } else if (targetType.isArray()) {
+                Class<?> componentType = targetType.getComponentType();
+                int length = Array.getLength(value);
+
+                Object array = Array.newInstance(componentType, length);
+    
+                for (int i = 0; i < length; i++) {
+                    Object element = Array.get(value, i);
+                    Array.set(array, i, convertValue(element, componentType));
+                }
+
+                return array;
+            } else if (targetType.isAssignableFrom(List.class)) {
+                return Arrays.asList((Object[]) value);
             } else {
                 // throw new IllegalArgumentException("Unsupported parameter type: " + targetType.getSimpleName());
                 return value;
             }
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid value for parameter '" + paramName + "': " + strValue, e);
+            throw new IllegalArgumentException("Invalid value for parameter", e);
         }
     }
 

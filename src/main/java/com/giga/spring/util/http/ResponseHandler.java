@@ -100,8 +100,8 @@ public class ResponseHandler {
     }
 
     protected void handle404(HttpServletResponse res) {
-        String htmlBody = "<h1>404 not found</h1>";
-        responseBody = formattedHtmlResponseBody("Method not found", htmlBody);
+        res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        responseBody = formattedHtmlResponseBody("Method not found", "<h1>404 not found</h1>");
         res.setContentType("text/html;charset=UTF-8");
     }
 
