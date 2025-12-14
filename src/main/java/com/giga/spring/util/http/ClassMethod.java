@@ -140,11 +140,24 @@ public class ClassMethod {
                 Object model = ReflectionUtil.getInstance().newInstanceFromNoArgsConstructor(parameter.getType());
 
                 for (String objectToStringPattern : objectToStringPatterns) {
-                    // Still using req.getParameterMap() for generalziation
+                    // Still using req.getParameterMap() for generalization
                     Map<String, String[]> parameterMap = req.getParameterMap();
                     String[] values = parameterMap.get(objectToStringPattern);
-                    String val = (values != null && values.length > 0) ? values[0] : null;
-                    ModelParser.getInstance().bind(model, objectToStringPattern.split("\\."), 1, val);
+
+                    /**
+                     * If the request provided multiple values for the same (non-indexed) field
+                     * ex: checkbox group
+                     */
+                    boolean hasIndex = objectToStringPattern.matches(".*\\[\\d+\\].*");
+                    if (values != null && values.length > 1 && !hasIndex) {
+                        for (int i = 0; i < values.length; i++) {
+                            String indexedPattern = objectToStringPattern + "[" + i + "]";
+                            ModelParser.getInstance().bind(model, indexedPattern.split("\\."), 1, values[i]);
+                        }
+                    } else {
+                        String val = (values != null && values.length > 0) ? values[0] : null;
+                        ModelParser.getInstance().bind(model, objectToStringPattern.split("\\."), 1, val);
+                    }
                 }
 
                 return model;
