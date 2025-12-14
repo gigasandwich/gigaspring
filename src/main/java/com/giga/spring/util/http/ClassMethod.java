@@ -1,7 +1,16 @@
 package com.giga.spring.util.http;
 
-import java.lang.reflect.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.giga.spring.annotation.controller.PathVariable;
@@ -9,9 +18,12 @@ import com.giga.spring.annotation.controller.RequestParameter;
 import com.giga.spring.annotation.http.DoGet;
 import com.giga.spring.annotation.http.DoPost;
 import com.giga.spring.annotation.http.RequestMapping;
+import com.giga.spring.exception.BindingException;
 import com.giga.spring.servlet.route.Route;
-
 import com.giga.spring.util.http.constant.HttpMethod;
+import com.giga.spring.util.reflect.ModelParser;
+import com.giga.spring.util.reflect.ReflectionUtil;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 public class ClassMethod {
@@ -58,7 +70,11 @@ public class ClassMethod {
             String paramName = getParameterName(parameter);
             Object paramValue = getParameterValue(paramName, parameter, req, route);
 
-            args[i] = convertValue(paramValue, parameter.getType(), paramName);
+            try {
+                args[i] = paramValue;
+            } catch (Exception e) {
+                throw new RuntimeException(e.getMessage() + " (" + paramName + ")");
+            }
         }
 
         return m.invoke(controller, args);
@@ -117,37 +133,27 @@ public class ClassMethod {
             }
         }
 
-        return null;
-    }
-
-    private Object convertValue(Object value, Class<?> targetType, String paramName) {
-        if (value == null) {
-            if (targetType.isPrimitive()) {
-                throw new IllegalArgumentException("Required primitive parameter '" + paramName + "' is missing");
-            } else { // Objects
-                return null;
-            }
-        }
-
-        String strValue = value.toString();
+        // 4. Raw Object
         try {
-            if (targetType == int.class || targetType == Integer.class) {
-                return Integer.parseInt(strValue);
-            } else if (targetType == long.class || targetType == Long.class) {
-                return Long.parseLong(strValue);
-            } else if (targetType == boolean.class || targetType == Boolean.class) {
-                return Boolean.parseBoolean(strValue);
-            } else if (targetType == double.class || targetType == Double.class) {
-                return Double.parseDouble(strValue);
-            } else if (targetType == String.class) {
-                return strValue;
-            } else {
-                // throw new IllegalArgumentException("Unsupported parameter type: " + targetType.getSimpleName());
-                return value;
+            if (!parameter.getType().isPrimitive() && !parameter.getType().equals(String.class)) {
+                List<String> objectToStringPatterns = ModelParser.getInstance().getObjectToStringPatterns(req, parameter);
+                Object model = ReflectionUtil.getInstance().newInstanceFromNoArgsConstructor(parameter.getType());
+
+                for (String objectToStringPattern : objectToStringPatterns) {
+                    // Still using req.getParameterMap() for generalziation
+                    Map<String, String[]> parameterMap = req.getParameterMap();
+                    String[] values = parameterMap.get(objectToStringPattern);
+                    String val = (values != null && values.length > 0) ? values[0] : null;
+                    ModelParser.getInstance().bind(model, objectToStringPattern.split("\\."), 1, val);
+                }
+
+                return model;
             }
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid value for parameter '" + paramName + "': " + strValue, e);
+        } catch (Exception e) {
+            throw new BindingException(e.getMessage());
         }
+
+        return null;
     }
 
     /****************************
