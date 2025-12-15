@@ -19,11 +19,14 @@ public class Route {
     private List<ClassMethod> cms;
 
     public Route(String path, List<ClassMethod> cms) {
-        String normalizedPath = path.endsWith("/") && path.length() > 1
+        this.path = normalizePath(path);
+        this.cms = cms;
+    }
+
+    static String normalizePath(String path) {
+        return path.endsWith("/") && path.length() > 1
                 ? path.substring(0, path.length() - 1)
                 : path;
-        this.path = normalizedPath;
-        this.cms = cms;
     }
 
     public String pathToRegex() throws IllegalArgumentException {
@@ -48,6 +51,7 @@ public class Route {
     }
 
     public Map<String, String> getPathVariableValues(String url) {
+        url = normalizePath(url);
         String regex = this.pathToRegex();
 
         Pattern pattern = Pattern.compile(regex);
