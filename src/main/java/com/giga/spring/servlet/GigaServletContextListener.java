@@ -4,6 +4,8 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 import com.giga.spring.annotation.controller.Controller;
+import com.giga.spring.annotation.controller.RestController;
+import com.giga.spring.exception.InvalidConfigurationException;
 import com.giga.spring.servlet.route.Router;
 import com.giga.spring.util.http.ClassMethod;
 import com.giga.spring.util.scan.ClassScanner;
@@ -16,9 +18,22 @@ import jakarta.servlet.annotation.WebListener;
 
 @WebListener
 public class GigaServletContextListener implements ServletContextListener{
+    private String basePackage;
+
     @Override
     public void contextInitialized(ServletContextEvent event) {
         ServletContext servletContext = event.getServletContext();
+
+        try {
+            basePackage = servletContext.getInitParameter("basePackage");
+            if (basePackage == null || basePackage.trim().isEmpty()) {
+                throw new InvalidConfigurationException("context-param 'basePackage' is required in web.xml");
+            }
+        } catch (InvalidConfigurationException e) {
+            e.printStackTrace();
+            throw e;
+        }
+
         servletContext.setAttribute("router", new Router(getUrlMethodMap()));
     }
 
@@ -29,7 +44,7 @@ public class GigaServletContextListener implements ServletContextListener{
     private Map<String, List<ClassMethod>> getUrlMethodMap() {
         Map<String, List<ClassMethod>> map = new HashMap<>();
 
-        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(Controller.class, "com.giga");
+        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(Controller.class, basePackage);
 
         System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {

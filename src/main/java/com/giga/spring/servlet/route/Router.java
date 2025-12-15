@@ -20,6 +20,7 @@ public class Router {
     }
 
     public Route getRoute(String uri) throws IllegalArgumentException {
+        uri = Route.normalizePath(uri);
 
         for(Route route : routes) {
             String pathRegex = route.pathToRegex();
