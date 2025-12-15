@@ -1,5 +1,6 @@
 package com.giga.spring.servlet;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -48,6 +49,11 @@ public class GigaServletContextListener implements ServletContextListener{
 
         System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {
+            boolean isOutputToJson = false;
+            if (c.isAnnotationPresent(RestController.class)) {
+                isOutputToJson = true;
+            }
+
             Map<String, List<Method>> urlMappingPathMap = MethodScanner.getInstance().getAllUrlMappingPathValues(c);
 
             for (String url : urlMappingPathMap.keySet()) {
@@ -55,7 +61,7 @@ public class GigaServletContextListener implements ServletContextListener{
                 List<ClassMethod> classMethods = new ArrayList<>();
 
                 for (Method m : methods) {
-                    ClassMethod cm = new ClassMethod(c, m);
+                    ClassMethod cm = new ClassMethod(c, m, isOutputToJson);
                     classMethods.add(cm);
                 }
 

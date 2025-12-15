@@ -22,6 +22,7 @@ import com.giga.spring.exception.BindingException;
 import com.giga.spring.servlet.route.Route;
 import com.giga.spring.util.http.constant.HttpMethod;
 import com.giga.spring.util.reflect.ModelParser;
+import com.giga.spring.util.reflect.Parser;
 import com.giga.spring.util.reflect.ReflectionUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,11 +31,13 @@ public class ClassMethod {
     private Class <?> c;
     private Method m;
     private HttpMethod httpMethod;
+    private boolean isOutputToJson;
 
-    public ClassMethod(Class<?> c, Method m) {
+    public ClassMethod(Class<?> c, Method m, boolean isOutputToJson) {
         this.c = c;
         this.m = m;
         this.httpMethod = getHttpMethodOnInit();
+        this.isOutputToJson = isOutputToJson;
         m.setAccessible(true); // Never forget this 🗿
     }
 
@@ -193,5 +196,9 @@ public class ClassMethod {
 
     public String toString() {
         return c.getName() + " " + m.toString();
+    }
+
+    public boolean isOutputToJson() {
+        return isOutputToJson;
     }
 }

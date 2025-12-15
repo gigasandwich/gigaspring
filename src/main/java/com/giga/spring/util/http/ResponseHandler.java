@@ -6,12 +6,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import com.giga.spring.servlet.route.Route;
-import com.giga.spring.util.http.constant.HttpMethod;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 public class ResponseHandler {
     private final ServletContext context;
@@ -36,7 +37,7 @@ public class ResponseHandler {
         }
 
         // responseBody is instantiated in either invokeControllerMethod(...) or handle404(...)
-        if (responseBody != null) {
+        if (contentType != null && responseBody != null) {
             res.setContentType(contentType);
             try (PrintWriter out = res.getWriter()) {
                 out.println(responseBody);
@@ -49,7 +50,6 @@ public class ResponseHandler {
 
     protected void invokeControllerMethod(Route route, HttpServletRequest req, HttpServletResponse res) {
         try {
-            Method m = route.getClassMethodByRequest(req).getM();
             ClassMethod cm = route.getClassMethodByRequest(req);
             Method m = cm.getM();
 
@@ -60,8 +60,14 @@ public class ResponseHandler {
                 handleString(route, req, res);
             } else if (returnType.equals(ModelAndView.class)) {
                 handleMav(route, req, res);
+            } else if (Object.class.isAssignableFrom(returnType)) {
+                handleObject(route, req, res);
             } else {
                 handleFallback(route, req, res);
+            }
+
+            if (cm.isOutputToJson()) {
+                contentType = "application/json";
             }
         } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException |
                  InvocationTargetException | IllegalAccessException ex) { // From method invocation
@@ -101,6 +107,13 @@ public class ResponseHandler {
         // No responseBody either because of the unknown return type
     }
 
+    private void handleObject(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
+        ClassMethod cm = route.getClassMethodByRequest(req);
+        Object object = cm.invokeMethod(route, req);
+        // contentType is application/json, set in invokeControllerMethod
+        responseBody = toJson(object);
+    }
+
     private void handleError(HttpServletResponse res, String errorMessage) {
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         contentType = "text/html;charset=UTF-8";
@@ -121,5 +134,10 @@ public class ResponseHandler {
                     %s
                 </body>
             </html>""".formatted(title, body);
+    }
+
+    private String toJson(Object object) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.writeValueAsString(object);
     }
 }
