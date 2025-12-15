@@ -66,11 +66,10 @@ public class ClassMethod {
         
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
-            
-            String paramName = getParameterName(parameter);
-            Object paramValue = getParameterValue(paramName, parameter, req, route);
 
+            String paramName = getParameterName(parameter);
             try {
+                Object paramValue = getParameterValue(paramName, parameter, req, route); // Parsing is already done here,
                 args[i] = paramValue;
             } catch (Exception e) {
                 throw new RuntimeException(e.getMessage() + " (" + paramName + ")");
@@ -95,10 +94,12 @@ public class ClassMethod {
     }
 
     private Object getParameterValue(String paramName, Parameter parameter, HttpServletRequest req, Route route) {
+        Parser parser = Parser.getInstance();
+
         // 1. request.getParameter
         String value = req.getParameter(paramName);
         if (value != null) {
-            return value;
+            return parser.stringToTargetType(value, parameter.getType());
         }
 
         // 2. PathVariable
@@ -106,7 +107,7 @@ public class ClassMethod {
         if (pv != null) {
             String uri = Route.getLocalURIPath(req);
             Map<String, String> pathVars = route.getPathVariableValues(uri);
-            return pathVars.get(paramName);
+            return parser.stringToTargetType(pathVars.get(paramName), parameter.getType());
         }
 
         // 3. Map<String, Object>
