@@ -14,14 +14,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 public class ResponseHandler {
-
-    private String responseBody = null;
     private final ServletContext context;
+
+    private String contentType = null;
+    private String responseBody = null;
 
     public ResponseHandler(ServletContext context) {
         this.context = context;
     }
 
+    /**
+     * The goal is to out.println(responseBody)
+     * */
     public void handleResponse(Route route, HttpServletRequest req, HttpServletResponse res) {
         boolean routeExists = route != null;
 
@@ -33,6 +37,7 @@ public class ResponseHandler {
 
         // responseBody is instantiated in either invokeControllerMethod(...) or handle404(...)
         if (responseBody != null) {
+            res.setContentType(contentType);
             try (PrintWriter out = res.getWriter()) {
                 out.println(responseBody);
             } catch (IOException ex) {
@@ -45,9 +50,12 @@ public class ResponseHandler {
     protected void invokeControllerMethod(Route route, HttpServletRequest req, HttpServletResponse res) {
         try {
             Method m = route.getClassMethodByRequest(req).getM();
+            ClassMethod cm = route.getClassMethodByRequest(req);
+            Method m = cm.getM();
 
             Class<?> returnType = m.getReturnType();
 
+            // Default content type is set here
             if (returnType.equals(String.class)) {
                 handleString(route, req, res);
             } else if (returnType.equals(ModelAndView.class)) {
@@ -67,7 +75,7 @@ public class ResponseHandler {
 
     private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
         ClassMethod cm = route.getClassMethodByRequest(req);
-        res.setContentType("text/plain");
+        contentType = "text/plain";
         responseBody = cm.invokeMethod(route, req).toString();
     }
 
@@ -95,14 +103,14 @@ public class ResponseHandler {
 
     private void handleError(HttpServletResponse res, String errorMessage) {
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        contentType = "text/html;charset=UTF-8";
         responseBody = formattedHtmlResponseBody("Error", "<h1>" + errorMessage + "</h1>");
-        res.setContentType("text/html;charset=UTF-8");
     }
 
     protected void handle404(HttpServletResponse res) {
         String htmlBody = "<h1>404 not found</h1>";
+        contentType = "text/html;charset=UTF-8";
         responseBody = formattedHtmlResponseBody("Method not found", htmlBody);
-        res.setContentType("text/html;charset=UTF-8");
     }
 
     private String formattedHtmlResponseBody(String title, String body) {
