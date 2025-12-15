@@ -45,7 +45,8 @@ public class GigaServletContextListener implements ServletContextListener{
     private Map<String, List<ClassMethod>> getUrlMethodMap() {
         Map<String, List<ClassMethod>> map = new HashMap<>();
 
-        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(Controller.class, basePackage);
+        Set<Class<? extends Annotation>> annotations = Set.of(Controller.class, RestController.class);
+        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(annotations, basePackage);
 
         System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {
