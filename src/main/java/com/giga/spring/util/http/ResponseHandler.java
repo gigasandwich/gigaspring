@@ -76,11 +76,23 @@ public class ResponseHandler {
                 Response response = new SuccessResponse(200, responseObject);
                 responseBody = response._toString();
             }
-        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException |
-                 InvocationTargetException | IllegalAccessException ex) { // From method invocation
+        } catch (InvocationTargetException ex) {
+            // Unwrap controller exception so client gets real error class/message
+            Throwable cause = ex.getTargetException();
+            String msg = cause == null ? ex.toString() : (cause.getClass().getName() + ": " + cause.getMessage());
             boolean isOutputToJson = cm != null && cm.isOutputToJson();
-            handleError(res, "Error invoking controller method: " + ex, isOutputToJson);
-        } catch (ServletException | IOException ex) { // From requestDispatcher.forward()
+            handleError(res, "Error invoking controller method: " + msg, isOutputToJson);
+        } catch (NoSuchMethodException | SecurityException | InstantiationException |
+                 IllegalArgumentException | IllegalAccessException ex) {
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            handleError(res, "Error invoking controller method: " + ex.getMessage(), isOutputToJson);
+        } catch (ServletException ex) {
+            // Servlet forward might wrap the real cause
+            Throwable cause = ex.getCause();
+            String msg = cause == null ? ex.getMessage() : (cause.getClass().getName() + ": " + cause.getMessage());
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            handleError(res, "Error forwarding to view: " + msg, isOutputToJson);
+        } catch (IOException ex) {
             boolean isOutputToJson = cm != null && cm.isOutputToJson();
             if (isOutputToJson) {
                 handleError(res, "Error forwarding to view: " + ex, false);
