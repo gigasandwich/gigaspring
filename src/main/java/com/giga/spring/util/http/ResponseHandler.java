@@ -5,6 +5,9 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import com.giga.spring.servlet.rest.ErrorResponse;
+import com.giga.spring.servlet.rest.Response;
+import com.giga.spring.servlet.rest.SuccessResponse;
 import com.giga.spring.servlet.route.Route;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
@@ -19,6 +22,7 @@ public class ResponseHandler {
 
     private String contentType = null;
     private String responseBody = null;
+    private Object responseObject = null;
 
     public ResponseHandler(ServletContext context) {
         this.context = context;
@@ -43,14 +47,15 @@ public class ResponseHandler {
                 out.println(responseBody);
             } catch (IOException ex) {
                 // TODO: log
-                handleError(res, ex.getMessage());
+                handleError(res, ex.getMessage(), false);
             }
         }
     }
 
     protected void invokeControllerMethod(Route route, HttpServletRequest req, HttpServletResponse res) {
+        ClassMethod cm = null;
         try {
-            ClassMethod cm = route.getClassMethodByRequest(req);
+            cm = route.getClassMethodByRequest(req);
             Method m = cm.getM();
 
             Class<?> returnType = m.getReturnType();
@@ -68,12 +73,20 @@ public class ResponseHandler {
 
             if (cm.isOutputToJson()) {
                 contentType = "application/json";
+                Response response = new SuccessResponse(200, responseObject);
+                responseBody = response._toString();
             }
         } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException |
                  InvocationTargetException | IllegalAccessException ex) { // From method invocation
-            handleError(res, "Error invoking controller method: " + ex.getMessage());
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            handleError(res, "Error invoking controller method: " + ex, isOutputToJson);
         } catch (ServletException | IOException ex) { // From requestDispatcher.forward()
-            handleError(res, "Error forwarding to view: " + ex.getMessage());
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            if (isOutputToJson) {
+                handleError(res, "Error forwarding to view: " + ex, false);
+            } else { // JsonIForgotException is a subclass or IOException
+                handleError(res, "JSON serialization error: " + ex, true);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -81,8 +94,14 @@ public class ResponseHandler {
 
     private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
         ClassMethod cm = route.getClassMethodByRequest(req);
-        contentType = "text/plain";
-        responseBody = cm.invokeMethod(route, req).toString();
+        Object result = cm.invokeMethod(route, req);
+        if (cm.isOutputToJson()) {
+            // Keep the raw object so the wrapper can serialize it (avoid double-escaping)
+            responseObject = result;
+        } else {
+            contentType = "text/plain";
+            responseBody = result == null ? "" : result.toString();
+        }
     }
 
     private void handleMav(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
@@ -111,13 +130,24 @@ public class ResponseHandler {
         ClassMethod cm = route.getClassMethodByRequest(req);
         Object object = cm.invokeMethod(route, req);
         // contentType is application/json, set in invokeControllerMethod
-        responseBody = toJson(object);
+        responseObject = object;
     }
 
-    private void handleError(HttpServletResponse res, String errorMessage) {
+    private void handleError(HttpServletResponse res, String errorMessage, boolean isOutputToJson) {
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        contentType = "text/html;charset=UTF-8";
-        responseBody = formattedHtmlResponseBody("Error", "<h1>" + errorMessage + "</h1>");
+        if (isOutputToJson) {
+            contentType = "application/json";
+            Response response = new ErrorResponse(500, errorMessage);
+            try {
+                responseBody = new ObjectMapper().writeValueAsString(response);
+            } catch (JsonProcessingException e) {
+                contentType = "text/plain";
+                responseBody = errorMessage;
+            }
+        } else {
+            contentType = "text/html;charset=UTF-8";
+            responseBody = formattedHtmlResponseBody("Error", "<h1>" + errorMessage + "</h1>");
+        }
     }
 
     protected void handle404(HttpServletResponse res) {
@@ -134,10 +164,5 @@ public class ResponseHandler {
                     %s
                 </body>
             </html>""".formatted(title, body);
-    }
-
-    private String toJson(Object object) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.writeValueAsString(object);
     }
 }
