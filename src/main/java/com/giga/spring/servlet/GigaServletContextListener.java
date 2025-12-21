@@ -1,10 +1,13 @@
 package com.giga.spring.servlet;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
 import com.giga.spring.annotation.controller.Controller;
 import com.giga.spring.annotation.controller.RestController;
+import com.giga.spring.annotation.method.IgnoreRestController;
+import com.giga.spring.annotation.method.JsonResponse;
 import com.giga.spring.exception.InvalidConfigurationException;
 import com.giga.spring.servlet.route.Router;
 import com.giga.spring.util.http.ClassMethod;
@@ -44,10 +47,16 @@ public class GigaServletContextListener implements ServletContextListener{
     private Map<String, List<ClassMethod>> getUrlMethodMap() {
         Map<String, List<ClassMethod>> map = new HashMap<>();
 
-        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(Controller.class, basePackage);
+        Set<Class<? extends Annotation>> annotations = Set.of(Controller.class, RestController.class);
+        Set<Class<?>> classes = ClassScanner.getInstance().getClassesAnnotatedWith(annotations, basePackage);
 
         System.out.println("Valid backend URLs: ");
         for (Class<?> c : classes) {
+            boolean isOutputToJson = false;
+            if (c.isAnnotationPresent(RestController.class)) {
+                isOutputToJson = true;
+            }
+
             Map<String, List<Method>> urlMappingPathMap = MethodScanner.getInstance().getAllUrlMappingPathValues(c);
 
             for (String url : urlMappingPathMap.keySet()) {
@@ -55,7 +64,15 @@ public class GigaServletContextListener implements ServletContextListener{
                 List<ClassMethod> classMethods = new ArrayList<>();
 
                 for (Method m : methods) {
-                    ClassMethod cm = new ClassMethod(c, m);
+                    if (m.isAnnotationPresent(JsonResponse.class)) {
+                        isOutputToJson = true;
+                    }
+
+                    if (m.isAnnotationPresent(IgnoreRestController.class)) {
+                        isOutputToJson = false;
+                    }
+
+                    ClassMethod cm = new ClassMethod(c, m, isOutputToJson);
                     classMethods.add(cm);
                 }
 

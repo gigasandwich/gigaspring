@@ -15,13 +15,15 @@ public class ClassScanner {
         return instance;
     }
 
-    public Set<Class<?>> getClassesAnnotatedWith(Class<? extends Annotation> annotation, String basePackage) {
+    public Set<Class<?>> getClassesAnnotatedWith(Set<Class<? extends Annotation>> annotations, String basePackage) {
         Set<Class<?>> classes = getClassesInPackage(basePackage);
         
         Set<Class<?>> filtered = new HashSet<>();
         for (Class<?> c : classes) {
-            if (c.isAnnotationPresent(annotation)) {
-                filtered.add(c);
+            for (Class<? extends Annotation> annotation : annotations) {
+                if (c.isAnnotationPresent(annotation)) {
+                    filtered.add(c);
+                }
             }
         }
 

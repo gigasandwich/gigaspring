@@ -5,8 +5,13 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.giga.spring.servlet.rest.ErrorResponse;
+import com.giga.spring.servlet.rest.Response;
+import com.giga.spring.servlet.rest.SuccessResponse;
 import com.giga.spring.servlet.route.Route;
-import com.giga.spring.util.http.constant.HttpMethod;
+
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
@@ -18,6 +23,7 @@ public class ResponseHandler {
 
     private String contentType = null;
     private String responseBody = null;
+    private Object responseObject = null;
 
     public ResponseHandler(ServletContext context) {
         this.context = context;
@@ -32,27 +38,33 @@ public class ResponseHandler {
         if (routeExists) {
             invokeControllerMethod(route, req, res);
         } else {
-            handle404(res);
+            handle404(req, res);
         }
 
         // responseBody is instantiated in either invokeControllerMethod(...) or handle404(...)
-        if (responseBody != null) {
+        if (contentType != null && responseBody != null) {
             res.setContentType(contentType);
             try (PrintWriter out = res.getWriter()) {
                 out.println(responseBody);
             } catch (IOException ex) {
                 // TODO: log
-                handleError(res, ex.getMessage());
+                handleError(res, ex.getMessage(), false);
             }
         }
     }
 
     protected void invokeControllerMethod(Route route, HttpServletRequest req, HttpServletResponse res) {
+        ClassMethod cm = null;
         try {
-            Method m = route.getClassMethodByRequest(req).getM();
-            ClassMethod cm = route.getClassMethodByRequest(req);
-            Method m = cm.getM();
+            cm = route.getClassMethodByRequest(req);
 
+            // URL exists, but the proper method doesn't
+            if (cm == null) {
+                handleMethodNotAllowed(req, res, route);
+                return;
+            }
+
+            Method m = cm.getM();
             Class<?> returnType = m.getReturnType();
 
             // Default content type is set here
@@ -60,14 +72,40 @@ public class ResponseHandler {
                 handleString(route, req, res);
             } else if (returnType.equals(ModelAndView.class)) {
                 handleMav(route, req, res);
+            } else if (Object.class.isAssignableFrom(returnType)) {
+                handleObject(route, req, res);
             } else {
                 handleFallback(route, req, res);
             }
-        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalArgumentException |
-                 InvocationTargetException | IllegalAccessException ex) { // From method invocation
-            handleError(res, "Error invoking controller method: " + ex.getMessage());
-        } catch (ServletException | IOException ex) { // From requestDispatcher.forward()
-            handleError(res, "Error forwarding to view: " + ex.getMessage());
+
+            if (cm.isOutputToJson()) {
+                contentType = "application/json";
+                Response response = new SuccessResponse(200, responseObject);
+                responseBody = response._toString();
+            }
+        } catch (InvocationTargetException ex) {
+            // Unwrap controller exception so client gets real error class/message
+            Throwable cause = ex.getTargetException();
+            String msg = cause == null ? ex.toString() : (cause.getClass().getName() + ": " + cause.getMessage());
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            handleError(res, "Error invoking controller method: " + msg, isOutputToJson);
+        } catch (NoSuchMethodException | SecurityException | InstantiationException |
+                 IllegalArgumentException | IllegalAccessException ex) {
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            handleError(res, "Error invoking controller method: " + ex.getMessage(), isOutputToJson);
+        } catch (ServletException ex) {
+            // Servlet forward might wrap the real cause
+            Throwable cause = ex.getCause();
+            String msg = cause == null ? ex.getMessage() : (cause.getClass().getName() + ": " + cause.getMessage());
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            handleError(res, "Error forwarding to view: " + msg, isOutputToJson);
+        } catch (IOException ex) {
+            boolean isOutputToJson = cm != null && cm.isOutputToJson();
+            if (!isOutputToJson) {
+                handleError(res, "Error forwarding to view: " + ex, false);
+            } else { // JsonIForgotException is a subclass of IOException
+                handleError(res, "JSON serialization error: " + ex, true);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -75,8 +113,14 @@ public class ResponseHandler {
 
     private void handleString(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
         ClassMethod cm = route.getClassMethodByRequest(req);
-        contentType = "text/plain";
-        responseBody = cm.invokeMethod(route, req).toString();
+        Object result = cm.invokeMethod(route, req);
+        if (cm.isOutputToJson()) {
+            // Keep the raw object so the wrapper can serialize it (avoid double-escaping)
+            responseObject = result;
+        } else {
+            contentType = "text/plain";
+            responseBody = result == null ? "" : result.toString();
+        }
     }
 
     private void handleMav(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
@@ -101,16 +145,88 @@ public class ResponseHandler {
         // No responseBody either because of the unknown return type
     }
 
-    private void handleError(HttpServletResponse res, String errorMessage) {
-        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        contentType = "text/html;charset=UTF-8";
-        responseBody = formattedHtmlResponseBody("Error", "<h1>" + errorMessage + "</h1>");
+    private void handleObject(Route route, HttpServletRequest req, HttpServletResponse res) throws Exception {
+        ClassMethod cm = route.getClassMethodByRequest(req);
+        Object object = cm.invokeMethod(route, req);
+        // contentType is application/json, set in invokeControllerMethod
+        responseObject = object;
     }
 
-    protected void handle404(HttpServletResponse res) {
-        String htmlBody = "<h1>404 not found</h1>";
-        contentType = "text/html;charset=UTF-8";
-        responseBody = formattedHtmlResponseBody("Method not found", htmlBody);
+    private void handleError(HttpServletResponse res, String errorMessage, boolean isOutputToJson) {
+        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        if (isOutputToJson) {
+            contentType = "application/json";
+            Response response = new ErrorResponse(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage);
+            try {
+                responseBody = new ObjectMapper().writeValueAsString(response);
+            } catch (JsonProcessingException e) {
+                contentType = "text/plain";
+                responseBody = errorMessage;
+            }
+        } else {
+            contentType = "text/html;charset=UTF-8";
+            responseBody = formattedHtmlResponseBody("Error", "<h1>" + errorMessage + "</h1>");
+        }
+    }
+
+    protected void handle404(HttpServletRequest req, HttpServletResponse res) {
+        res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        String accept = req.getHeader("Accept");
+        String format = req.getParameter("format");
+        boolean wantsJson = (accept != null && accept.contains("application/json")) 
+                                || (format != null && format.equalsIgnoreCase("json"));
+
+        if (wantsJson) {
+            contentType = "application/json";
+            Response response = new ErrorResponse(HttpServletResponse.SC_NOT_FOUND, "Resource not found");
+            try {
+                responseBody = new ObjectMapper().writeValueAsString(response);
+            } catch (JsonProcessingException e) {
+                contentType = "text/plain";
+                responseBody = "Resource not found";
+            }
+        } else {
+            String htmlBody = "<h1>404 not found</h1>";
+            contentType = "text/html;charset=UTF-8";
+            responseBody = formattedHtmlResponseBody("Resource not found", htmlBody);
+        }
+    }
+
+    protected void handleMethodNotAllowed(HttpServletRequest req, HttpServletResponse res, Route route) {
+        res.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+
+        // Collect allowed methods from route
+        StringBuilder allow = new StringBuilder();
+        boolean first = true;
+        for (ClassMethod cm : route.getCms()) {
+            String methodName = cm.getHttpMethod().name();
+            if (!first) allow.append(", ");
+            allow.append(methodName);
+            first = false;
+        }
+
+        if (allow.length() > 0) {
+            res.setHeader("Allow", allow.toString());
+        }
+
+        String accept = req.getHeader("Accept");
+        String format = req.getParameter("format");
+        boolean wantsJson = (accept != null && accept.contains("application/json"))
+                || (format != null && format.equalsIgnoreCase("json"));
+
+        if (wantsJson) {
+            contentType = "application/json";
+            Response response = new ErrorResponse(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            try {
+                responseBody = new ObjectMapper().writeValueAsString(response);
+            } catch (JsonProcessingException e) {
+                contentType = "text/plain";
+                responseBody = "Method not allowed";
+            }
+        } else {
+            contentType = "text/html;charset=UTF-8";
+            responseBody = formattedHtmlResponseBody("Method not allowed", "<h1>405 Method Not Allowed</h1>");
+        }
     }
 
     private String formattedHtmlResponseBody(String title, String body) {
