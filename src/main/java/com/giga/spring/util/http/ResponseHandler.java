@@ -57,12 +57,14 @@ public class ResponseHandler {
         ClassMethod cm = null;
         try {
             cm = route.getClassMethodByRequest(req);
+
+            // URL exists, but the proper method doesn't
             if (cm == null) {
                 handleMethodNotAllowed(req, res, route);
                 return;
             }
-            Method m = cm.getM();
 
+            Method m = cm.getM();
             Class<?> returnType = m.getReturnType();
 
             // Default content type is set here
@@ -99,9 +101,9 @@ public class ResponseHandler {
             handleError(res, "Error forwarding to view: " + msg, isOutputToJson);
         } catch (IOException ex) {
             boolean isOutputToJson = cm != null && cm.isOutputToJson();
-            if (isOutputToJson) {
+            if (!isOutputToJson) {
                 handleError(res, "Error forwarding to view: " + ex, false);
-            } else { // JsonIForgotException is a subclass or IOException
+            } else { // JsonIForgotException is a subclass of IOException
                 handleError(res, "JSON serialization error: " + ex, true);
             }
         } catch (Exception e) {
