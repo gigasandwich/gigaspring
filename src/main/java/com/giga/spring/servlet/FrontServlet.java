@@ -9,6 +9,7 @@ import com.giga.spring.util.http.ResponseHandler;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,6 +19,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * the requested resource exists, it delegates to the default dispatcher - else
  * it shows the requested URL
  */
+@MultipartConfig(fileSizeThreshold = 1024 * 1024, maxFileSize = 10 * 1024 * 1024, maxRequestSize = 50 * 1024 * 1024)
 public class FrontServlet extends HttpServlet {
 
     RequestDispatcher defaultDispatcher;
