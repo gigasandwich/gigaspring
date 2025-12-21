@@ -6,6 +6,7 @@ import java.util.*;
 
 import com.giga.spring.annotation.controller.Controller;
 import com.giga.spring.annotation.controller.RestController;
+import com.giga.spring.annotation.method.IgnoreRestController;
 import com.giga.spring.annotation.method.JsonResponse;
 import com.giga.spring.exception.InvalidConfigurationException;
 import com.giga.spring.servlet.route.Router;
@@ -65,6 +66,10 @@ public class GigaServletContextListener implements ServletContextListener{
                 for (Method m : methods) {
                     if (m.isAnnotationPresent(JsonResponse.class)) {
                         isOutputToJson = true;
+                    }
+
+                    if (m.isAnnotationPresent(IgnoreRestController.class)) {
+                        isOutputToJson = false;
                     }
 
                     ClassMethod cm = new ClassMethod(c, m, isOutputToJson);
