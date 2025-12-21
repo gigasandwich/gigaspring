@@ -1,17 +1,18 @@
 package com.giga.spring.util.http;
 
-import java.lang.reflect.Array;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.giga.spring.annotation.controller.PathVariable;
 import com.giga.spring.annotation.controller.RequestParameter;
@@ -25,7 +26,9 @@ import com.giga.spring.util.reflect.ModelParser;
 import com.giga.spring.util.reflect.Parser;
 import com.giga.spring.util.reflect.ReflectionUtil;
 
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Part;
 
 public class ClassMethod {
     private Class <?> c;
@@ -96,7 +99,7 @@ public class ClassMethod {
         return parameter.getName();
     }
 
-    private Object getParameterValue(String paramName, Parameter parameter, HttpServletRequest req, Route route) {
+    private Object getParameterValue(String paramName, Parameter parameter, HttpServletRequest req, Route route) throws ServletException, IOException {
         Parser parser = Parser.getInstance();
 
         // 1. request.getParameter
@@ -113,12 +116,38 @@ public class ClassMethod {
             return parser.stringToTargetType(pathVars.get(paramName), parameter.getType());
         }
 
-        // 3. Map<String, Object>
+        // 3 Map
         Type type = parameter.getParameterizedType();
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
             if (parameterizedType.getRawType().equals(Map.class)) {
                 Type[] typeArguments = parameterizedType.getActualTypeArguments();
+
+                // String - byte[]
+                if (typeArguments.length == 2 && typeArguments[0].equals(String.class)) {
+                    Map<String, List<byte[]>> fileMap = req.getParts().stream()
+                                                            .filter(p -> p.getSubmittedFileName() != null)
+                                                            .collect(Collectors.groupingBy(Part::getName,
+                                                                        Collectors.mapping(p -> {
+                                                                            try (InputStream in = p.getInputStream()) {
+                                                                                return in.readAllBytes();
+                                                                            } catch (IOException e) {
+                                                                                throw new UncheckedIOException(e);
+                                                                            }
+                                                                        }, Collectors.toList())
+                                                                    )
+                                                            );
+                    String valueTypeName = typeArguments[1].getTypeName();
+                    boolean wantsSingleFile = valueTypeName.equals("byte[]");
+                    if (wantsSingleFile) {
+                        return fileMap.entrySet().stream()
+                                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
+                    }
+
+                    return fileMap;
+                }
+
+                // String - Object
                 if (typeArguments.length == 2 && typeArguments[0].equals(String.class) && typeArguments[1].equals(Object.class) ){
                     Map<String, Object> paramMapObject = new HashMap<>();
                     Map<String, String[]> parameterMap = req.getParameterMap();
