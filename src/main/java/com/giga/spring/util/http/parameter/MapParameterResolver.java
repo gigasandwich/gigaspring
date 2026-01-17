@@ -1,12 +1,15 @@
 package com.giga.spring.util.http.parameter;
 
+import com.giga.spring.annotation.controller.GigaSession;
 import com.giga.spring.annotation.controller.PathVariable;
 import com.giga.spring.servlet.route.Route;
+import com.giga.spring.util.SessionMap;
 import com.giga.spring.util.file.GigaFile;
 import com.giga.spring.util.reflect.Parser;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
 import java.io.IOException;
@@ -15,6 +18,7 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +89,21 @@ public class MapParameterResolver implements ParameterResolver {
                 return fileMap;
 
             } else { // value: Object
+                if (parameter.isAnnotationPresent(GigaSession.class)) {
+                    HttpSession session = req.getSession(true);
+                    Map<String, Object> debug = new HashMap<>();
+
+                    Enumeration<String> names = session.getAttributeNames();
+                    while (names.hasMoreElements()) {
+                        String name = names.nextElement();
+                        debug.put(name, session.getAttribute(name));
+                    }
+
+                    System.out.println("SESSION CONTENT: " + debug);
+
+                    return new SessionMap(session);
+                }
+
                 Map<String, Object> paramMapObject = new HashMap<>();
                 Map<String, String[]> parameterMap = req.getParameterMap();
                 for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
