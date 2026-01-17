@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,14 +20,9 @@ import com.giga.spring.annotation.controller.RequestParameter;
 import com.giga.spring.annotation.http.DoGet;
 import com.giga.spring.annotation.http.DoPost;
 import com.giga.spring.annotation.http.RequestMapping;
-import com.giga.spring.exception.BindingException;
 import com.giga.spring.servlet.route.Route;
-import com.giga.spring.util.file.GigaFile;
 import com.giga.spring.util.http.constant.HttpMethod;
-import com.giga.spring.util.reflect.ModelParser;
-import com.giga.spring.util.reflect.Parser;
-import com.giga.spring.util.reflect.ReflectionUtil;
-
+import com.giga.spring.util.http.parameter.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Part;
@@ -36,6 +32,14 @@ public class ClassMethod {
     private Method m;
     private HttpMethod httpMethod;
     private boolean isOutputToJson;
+
+    private List<ParameterResolver> resolvers = Arrays.asList(
+        new RequestParameterResolver(),
+        new PathVariableParameterResolver(),
+        new MapParameterResolver(),
+        new ObjectParameterResolver(),
+        new FallbackResolver()
+    );
 
     public ClassMethod(Class<?> c, Method m, boolean isOutputToJson) {
         this.c = c;
@@ -101,124 +105,11 @@ public class ClassMethod {
     }
 
     private Object getParameterValue(String paramName, Parameter parameter, HttpServletRequest req, Route route) throws ServletException, IOException {
-        Parser parser = Parser.getInstance();
-
-        // 1. request.getParameter
-        String value = req.getParameter(paramName);
-        if (value != null) {
-            return parser.stringToTargetType(value, parameter.getType());
-        }
-
-        // 2. PathVariable
-        PathVariable pv = parameter.getAnnotation(PathVariable.class);
-        if (pv != null) {
-            String uri = Route.getLocalURIPath(req);
-            Map<String, String> pathVars = route.getPathVariableValues(uri);
-            return parser.stringToTargetType(pathVars.get(paramName), parameter.getType());
-        }
-
-        // 3 Map, key: String
-        Type type = parameter.getParameterizedType();
-        if (type instanceof ParameterizedType) {
-            ParameterizedType parameterizedType = (ParameterizedType) type;
-            if (parameterizedType.getRawType().equals(Map.class)) {
-                Type[] typeArguments = parameterizedType.getActualTypeArguments();
-                Type valueType = typeArguments[1];
-                String valueTypeName = valueType.getTypeName();
-                
-                if (typeArguments.length == 2 && typeArguments[0].equals(String.class)) {
-                    // value: byte[]
-                    if (valueTypeName.equals("byte[]") || valueTypeName.equals("java.util.List<byte[]>")) {
-                        Map<String, List<byte[]>> fileMap = req.getParts().stream()
-                                                            .filter(p -> p.getSubmittedFileName() != null)
-                                                            .collect(Collectors.groupingBy(Part::getName,
-                                                                        Collectors.mapping(p -> {
-                                                                            try (InputStream in = p.getInputStream()) {
-                                                                                return in.readAllBytes();
-                                                                            } catch (IOException e) {
-                                                                                throw new UncheckedIOException(e);
-                                                                            }
-                                                                        }, Collectors.toList())
-                                                                    )
-                                                            );
-                        boolean wantsSingleFile = valueTypeName.equals("byte[]");
-                        if (wantsSingleFile) {
-                            return fileMap.entrySet().stream()
-                                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
-                        }
-                        return fileMap;
-                    } else if (valueType.equals(GigaFile.class) || valueTypeName.equals("java.util.List<com.giga.spring.util.file.GigaFile>")) {
-                        Map<String, List<GigaFile>> fileMap = req.getParts().stream()
-                                                            .filter(p -> p.getSubmittedFileName() != null)
-                                                            .collect(Collectors.groupingBy(Part::getName,
-                                                                        Collectors.mapping(p -> {
-                                                                            try {
-                                                                                return new GigaFile(p);
-                                                                            } catch (IOException e) {
-                                                                                throw new UncheckedIOException(e);
-                                                                            }
-                                                                        }, Collectors.toList())
-                                                                    )
-                                                            );
-                        boolean wantsSingleFile = valueTypeName.equals("com.giga.spring.util.file.GigaFile");
-                        if (wantsSingleFile) {
-                            return fileMap.entrySet().stream()
-                                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
-                        }
-                        return fileMap;
-
-                    } else { // value: Object
-                        Map<String, Object> paramMapObject = new HashMap<>();
-                        Map<String, String[]> parameterMap = req.getParameterMap();
-                        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
-                            String key = entry.getKey();
-                            String[] values = entry.getValue();
-
-                            if (values.length == 1) {
-                                paramMapObject.put(key, values[0]);
-                            } else {
-                                paramMapObject.put(key, values);
-                            }
-                        }
-                        return paramMapObject;
-                    }
-                }
+        for (ParameterResolver resolver : resolvers) {
+            if (resolver.supports(paramName, parameter, req, route)) {
+                return resolver.resolve(paramName, parameter, req, route);
             }
         }
-
-        // 4. Raw Object
-        try {
-            if (!parameter.getType().isPrimitive() && !parameter.getType().equals(String.class)) {
-                List<String> objectToStringPatterns = ModelParser.getInstance().getObjectToStringPatterns(req, parameter);
-                Object model = ReflectionUtil.getInstance().newInstanceFromNoArgsConstructor(parameter.getType());
-
-                for (String objectToStringPattern : objectToStringPatterns) {
-                    // Still using req.getParameterMap() for generalization
-                    Map<String, String[]> parameterMap = req.getParameterMap();
-                    String[] values = parameterMap.get(objectToStringPattern);
-
-                    /**
-                     * If the request provided multiple values for the same (non-indexed) field
-                     * ex: checkbox group
-                     */
-                    boolean hasIndex = objectToStringPattern.matches(".*\\[\\d+\\].*");
-                    if (values != null && values.length > 1 && !hasIndex) {
-                        for (int i = 0; i < values.length; i++) {
-                            String indexedPattern = objectToStringPattern + "[" + i + "]";
-                            ModelParser.getInstance().bind(model, indexedPattern.split("\\."), 1, values[i]);
-                        }
-                    } else {
-                        String val = (values != null && values.length > 0) ? values[0] : null;
-                        ModelParser.getInstance().bind(model, objectToStringPattern.split("\\."), 1, val);
-                    }
-                }
-
-                return model;
-            }
-        } catch (Exception e) {
-            throw new BindingException(e.getMessage());
-        }
-
         return null;
     }
 
