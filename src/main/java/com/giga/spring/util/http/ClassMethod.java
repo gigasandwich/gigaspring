@@ -116,16 +116,18 @@ public class ClassMethod {
             return parser.stringToTargetType(pathVars.get(paramName), parameter.getType());
         }
 
-        // 3 Map
+        // 3 Map, key: String
         Type type = parameter.getParameterizedType();
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
             if (parameterizedType.getRawType().equals(Map.class)) {
                 Type[] typeArguments = parameterizedType.getActualTypeArguments();
-
-                // String - byte[]
+                String valueTypeName = typeArguments[1].getTypeName();
+                
                 if (typeArguments.length == 2 && typeArguments[0].equals(String.class)) {
-                    Map<String, List<byte[]>> fileMap = req.getParts().stream()
+                    // value: byte[]
+                    if (valueTypeName.equals("byte[]") || valueTypeName.equals("java.util.List<byte[]>")) {
+                        Map<String, List<byte[]>> fileMap = req.getParts().stream()
                                                             .filter(p -> p.getSubmittedFileName() != null)
                                                             .collect(Collectors.groupingBy(Part::getName,
                                                                         Collectors.mapping(p -> {
@@ -137,31 +139,27 @@ public class ClassMethod {
                                                                         }, Collectors.toList())
                                                                     )
                                                             );
-                    String valueTypeName = typeArguments[1].getTypeName();
-                    boolean wantsSingleFile = valueTypeName.equals("byte[]");
-                    if (wantsSingleFile) {
-                        return fileMap.entrySet().stream()
-                                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
-                    }
-
-                    return fileMap;
-                }
-
-                // String - Object
-                if (typeArguments.length == 2 && typeArguments[0].equals(String.class) && typeArguments[1].equals(Object.class) ){
-                    Map<String, Object> paramMapObject = new HashMap<>();
-                    Map<String, String[]> parameterMap = req.getParameterMap();
-                    for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
-                        String key = entry.getKey();
-                        String[] values = entry.getValue();
-
-                        if (values.length == 1) {
-                            paramMapObject.put(key, values[0]);
-                        } else {
-                            paramMapObject.put(key, values);
+                        boolean wantsSingleFile = valueTypeName.equals("byte[]");
+                        if (wantsSingleFile) {
+                            return fileMap.entrySet().stream()
+                                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
                         }
+                        return fileMap;
+                    } else { // value: Object
+                        Map<String, Object> paramMapObject = new HashMap<>();
+                        Map<String, String[]> parameterMap = req.getParameterMap();
+                        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+                            String key = entry.getKey();
+                            String[] values = entry.getValue();
+
+                            if (values.length == 1) {
+                                paramMapObject.put(key, values[0]);
+                            } else {
+                                paramMapObject.put(key, values);
+                            }
+                        }
+                        return paramMapObject;
                     }
-                    return paramMapObject;
                 }
             }
         }
