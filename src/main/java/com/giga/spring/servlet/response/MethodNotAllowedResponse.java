@@ -2,8 +2,8 @@ package com.giga.spring.servlet.response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.giga.spring.servlet.rest.ErrorResponse;
-import com.giga.spring.servlet.rest.Response;
+import com.giga.spring.servlet.response.rest.ErrorResponse;
+import com.giga.spring.servlet.response.rest.Response;
 import com.giga.spring.servlet.route.Route;
 import com.giga.spring.util.http.ClassMethod;
 

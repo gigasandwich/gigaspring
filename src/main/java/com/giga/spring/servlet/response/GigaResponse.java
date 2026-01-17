@@ -1,7 +1,7 @@
 package com.giga.spring.servlet.response;
 
-import com.giga.spring.servlet.rest.Response;
-import com.giga.spring.servlet.rest.SuccessResponse;
+import com.giga.spring.servlet.response.rest.Response;
+import com.giga.spring.servlet.response.rest.SuccessResponse;
 import com.giga.spring.servlet.route.Route;
 
 import jakarta.servlet.ServletContext;

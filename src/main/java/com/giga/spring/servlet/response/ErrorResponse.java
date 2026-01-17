@@ -2,7 +2,7 @@ package com.giga.spring.servlet.response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.giga.spring.servlet.rest.Response;
+import com.giga.spring.servlet.response.rest.Response;
 import com.giga.spring.servlet.route.Route;
 
 import jakarta.servlet.ServletContext;
@@ -22,7 +22,7 @@ public class ErrorResponse extends GigaResponse {
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         if (isOutputToJson) {
             contentType = "application/json";
-            Response response = new com.giga.spring.servlet.rest.ErrorResponse(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage);
+            Response response = new com.giga.spring.servlet.response.rest.ErrorResponse(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage);
             try {
                 responseBody = new ObjectMapper().writeValueAsString(response);
             } catch (JsonProcessingException e) {
