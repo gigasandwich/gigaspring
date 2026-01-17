@@ -1,4 +1,4 @@
-package com.giga.spring.servlet.rest;
+package com.giga.spring.servlet.response.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;

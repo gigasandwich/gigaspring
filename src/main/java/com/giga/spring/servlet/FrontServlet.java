@@ -2,9 +2,9 @@ package com.giga.spring.servlet;
 
 import java.io.IOException;
 
+import com.giga.spring.servlet.response.ResponseHandler;
 import com.giga.spring.servlet.route.Route;
 import com.giga.spring.servlet.route.Router;
-import com.giga.spring.util.http.ResponseHandler;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
@@ -44,22 +44,30 @@ public class FrontServlet extends HttpServlet {
 
         boolean resourceExists = getServletContext().getResource(path) != null;
 
-        if (resourceExists) {
-            defaultServe(req, res);
-        } else {
-            customServe(req, res);
+        /**
+         * Only customServe throws Exception 
+         * but the code is more readable this way
+        */
+        
+        try {
+            if (resourceExists) {
+                defaultServe(req, res);
+            } else {
+                customServe(req, res);
+            }
+        } catch (Exception e) {
+            throw new ServletException(e);
         }
-    }
-
-    protected void customServe(HttpServletRequest req, HttpServletResponse res) throws IllegalArgumentException {
-        String path = Route.getLocalURIPath(req);
-        Route route = router.getRoute(path);
-
-        new ResponseHandler(getServletContext()).handleResponse(route, req, res);
     }
 
     protected void defaultServe(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         defaultDispatcher.forward(req, res);
     }
 
+    protected void customServe(HttpServletRequest req, HttpServletResponse res) throws Exception {
+        String path = Route.getLocalURIPath(req);
+        Route route = router.getRoute(path);
+
+        new ResponseHandler(getServletContext()).handleResponse(route, req, res);
+    }
 }

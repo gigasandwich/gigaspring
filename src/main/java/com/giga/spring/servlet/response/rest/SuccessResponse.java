@@ -1,4 +1,4 @@
-package com.giga.spring.servlet.rest;
+package com.giga.spring.servlet.response.rest;
 
 public class SuccessResponse extends Response {
     public SuccessResponse(int code, Object data) {
