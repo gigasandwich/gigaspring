@@ -21,6 +21,7 @@ import com.giga.spring.annotation.http.DoPost;
 import com.giga.spring.annotation.http.RequestMapping;
 import com.giga.spring.exception.BindingException;
 import com.giga.spring.servlet.route.Route;
+import com.giga.spring.util.file.GigaFile;
 import com.giga.spring.util.http.constant.HttpMethod;
 import com.giga.spring.util.reflect.ModelParser;
 import com.giga.spring.util.reflect.Parser;
@@ -122,7 +123,8 @@ public class ClassMethod {
             ParameterizedType parameterizedType = (ParameterizedType) type;
             if (parameterizedType.getRawType().equals(Map.class)) {
                 Type[] typeArguments = parameterizedType.getActualTypeArguments();
-                String valueTypeName = typeArguments[1].getTypeName();
+                Type valueType = typeArguments[1];
+                String valueTypeName = valueType.getTypeName();
                 
                 if (typeArguments.length == 2 && typeArguments[0].equals(String.class)) {
                     // value: byte[]
@@ -145,6 +147,26 @@ public class ClassMethod {
                                     .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
                         }
                         return fileMap;
+                    } else if (valueType.equals(GigaFile.class) || valueTypeName.equals("java.util.List<com.giga.spring.util.file.GigaFile>")) {
+                        Map<String, List<GigaFile>> fileMap = req.getParts().stream()
+                                                            .filter(p -> p.getSubmittedFileName() != null)
+                                                            .collect(Collectors.groupingBy(Part::getName,
+                                                                        Collectors.mapping(p -> {
+                                                                            try {
+                                                                                return new GigaFile(p);
+                                                                            } catch (IOException e) {
+                                                                                throw new UncheckedIOException(e);
+                                                                            }
+                                                                        }, Collectors.toList())
+                                                                    )
+                                                            );
+                        boolean wantsSingleFile = valueTypeName.equals("com.giga.spring.util.file.GigaFile");
+                        if (wantsSingleFile) {
+                            return fileMap.entrySet().stream()
+                                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isEmpty() ? null : e.getValue().get(0)));
+                        }
+                        return fileMap;
+
                     } else { // value: Object
                         Map<String, Object> paramMapObject = new HashMap<>();
                         Map<String, String[]> parameterMap = req.getParameterMap();
