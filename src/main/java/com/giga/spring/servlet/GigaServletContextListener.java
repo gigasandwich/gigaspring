@@ -1,5 +1,9 @@
 package com.giga.spring.servlet;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -26,19 +30,35 @@ public class GigaServletContextListener implements ServletContextListener{
     @Override
     public void contextInitialized(ServletContextEvent event) {
         ServletContext servletContext = event.getServletContext();
-
         try {
+            Properties properties = getProperties("application.properties");
+
             basePackage = servletContext.getInitParameter("basePackage");
             if (basePackage == null || basePackage.trim().isEmpty()) {
                 throw new InvalidConfigurationException("context-param 'basePackage' is required in web.xml");
             }
-        } catch (InvalidConfigurationException e) {
+    
+            servletContext.setAttribute("role.session.name", properties.get("role.session.name"));
+        } catch (RuntimeException e) {
             e.printStackTrace();
             throw e;
         }
 
         servletContext.setAttribute("router", new Router(getUrlMethodMap()));
-        servletContext.setAttribute("roleVariableName", "role");
+    }
+
+    private Properties getProperties(String fileName) throws RuntimeException {
+        try {
+            Properties props = new Properties();
+            InputStream is = getClass().getClassLoader().getResourceAsStream(fileName);
+            if (is == null) {
+                throw new RuntimeException("Config file (" + fileName + ") not found");
+            }
+            props.load(is);
+            return props;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

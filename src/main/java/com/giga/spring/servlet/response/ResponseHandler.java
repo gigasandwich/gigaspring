@@ -107,7 +107,7 @@ public class ResponseHandler {
     }
 
     public String getRole(HttpServletRequest req) {
-        String roleVariableName = (String) context.getAttribute("roleVariableName");
+        String roleVariableName = (String) context.getAttribute("role.session.name");
         return (String) req.getSession().getAttribute(roleVariableName);
     }
 }
