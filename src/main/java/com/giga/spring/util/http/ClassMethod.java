@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 
 import com.giga.spring.annotation.controller.PathVariable;
 import com.giga.spring.annotation.controller.RequestParameter;
+import com.giga.spring.annotation.controller.security.Authorized;
+import com.giga.spring.annotation.controller.security.Role;
 import com.giga.spring.annotation.http.DoGet;
 import com.giga.spring.annotation.http.DoPost;
 import com.giga.spring.annotation.http.RequestMapping;
@@ -111,6 +113,33 @@ public class ClassMethod {
             }
         }
         return null;
+    }
+
+    public boolean isAccessibleBy(String role) {
+        if (!m.isAnnotationPresent(Authorized.class) && !m.isAnnotationPresent(Role.class)) {
+            return true;
+        }
+
+        // If user just has a role (they are authenticated)
+        if (m.isAnnotationPresent(Authorized.class)) {
+            if (role !=null && !role.isEmpty()) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        
+        // If the role matches
+        if (m.isAnnotationPresent(Role.class)) {
+            Role roleAnnotation = m.getAnnotation(Role.class);
+            String roleOnAnnotation = roleAnnotation.value();
+            
+            if (role.equals(roleOnAnnotation)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /****************************

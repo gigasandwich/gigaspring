@@ -38,6 +38,7 @@ public class GigaServletContextListener implements ServletContextListener{
         }
 
         servletContext.setAttribute("router", new Router(getUrlMethodMap()));
+        servletContext.setAttribute("roleVariableName", "role");
     }
 
     /**

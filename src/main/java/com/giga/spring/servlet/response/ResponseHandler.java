@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import com.giga.spring.exception.InvalidAccessException;
 import com.giga.spring.servlet.route.Route;
 import com.giga.spring.util.http.ClassMethod;
 import com.giga.spring.util.http.ModelAndView;
@@ -60,8 +61,12 @@ public class ResponseHandler {
 
             Method m = cm.getM();
             Class<?> returnType = m.getReturnType();
+            
+            String role = getRole(req);
+            if (!cm.isAccessibleBy(role)) {
+                throw new InvalidAccessException("User's current role (" + role + ") cannot execute this method");
+            }
 
-            // Default content type is set here
             if (returnType.equals(String.class)) {
                 return new StringResponse(route, req, res, context);
             } else if (returnType.equals(ModelAndView.class)) {
@@ -99,5 +104,10 @@ public class ResponseHandler {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+    }
+
+    public String getRole(HttpServletRequest req) {
+        String roleVariableName = (String) context.getAttribute("roleVariableName");
+        return (String) req.getSession().getAttribute(roleVariableName);
     }
 }
