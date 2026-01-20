@@ -33,9 +33,9 @@ public class GigaServletContextListener implements ServletContextListener{
         try {
             Properties properties = getProperties("application.properties");
 
-            basePackage = servletContext.getInitParameter("basePackage");
+            basePackage = properties.getProperty("app.base.package");
             if (basePackage == null || basePackage.trim().isEmpty()) {
-                throw new InvalidConfigurationException("context-param 'basePackage' is required in web.xml");
+                throw new InvalidConfigurationException("Property 'app.base.package' is required in configuration file");
             }
     
             servletContext.setAttribute("role.session.name", properties.get("role.session.name"));
